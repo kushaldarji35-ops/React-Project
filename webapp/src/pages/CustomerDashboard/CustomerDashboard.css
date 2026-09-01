@@ -1,0 +1,247 @@
+
+
+* { 
+    box-sizing: border-box; margin: 0; padding: 0; 
+}
+
+.customer-dashboard {
+    min-height: 100vh;
+    background: #f4f6fb;
+    font-family: 'Inter', sans-serif;
+}
+
+/* ── Header ── */
+.cd-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    height: 64px;
+    background: #1a1a2e;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.cd-header-left {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+}
+
+.cd-logo {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: white;
+    letter-spacing: 0.5px;
+    text-decoration: none;
+}
+
+.cd-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.cd-nav-item {
+    color: #b0b3c6;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.cd-nav-item:hover,
+.cd-nav-item.active {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.12);
+    font-weight: 600;
+}
+
+.cd-header-right {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.cd-welcome {
+    color: #ccc;
+    font-size: 0.9rem;
+}
+
+.cd-welcome strong {
+    color: white;
+}
+
+.cd-logout-btn {
+    padding: 8px 18px;
+    background: #e53935;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.cd-logout-btn:hover { background: #b71c1c; }
+
+
+/* ── Main ── */
+.cd-main {
+    max-width: 960px;
+    margin: 40px auto;
+    padding: 0 24px;
+}
+
+
+/* ── Banner ── */
+.cd-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    border-radius: 16px;
+    padding: 36px 40px;
+    color: white;
+    margin-bottom: 28px;
+    box-shadow: 0 8px 24px rgba(79, 70, 229, 0.3);
+}
+
+.cd-banner-text h1 {
+    font-size: 1.7rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.cd-banner-text p {
+    font-size: 0.95rem;
+    opacity: 0.85;
+}
+
+.cd-banner-icon {
+    font-size: 4rem;
+    opacity: 0.9;
+}
+
+
+/* ── Cards ── */
+.cd-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 28px;
+}
+
+.cd-card {
+    background: white;
+    border-radius: 14px;
+    padding: 24px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.cd-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.15);
+}
+
+.cd-card-icon {
+    font-size: 2rem;
+    width: 52px;
+    height: 52px;
+    background: #f0f0ff;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cd-card-info h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1a1a2e;
+    margin-bottom: 4px;
+}
+
+.cd-card-info p {
+    font-size: 0.8rem;
+    color: #888;
+}
+
+
+/* ── Info Box ── */
+.cd-info-box {
+    background: white;
+    border-radius: 14px;
+    padding: 28px 32px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+
+.cd-info-box h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1a1a2e;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.cd-info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.cd-info-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.cd-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    width: 80px;
+    flex-shrink: 0;
+}
+
+.cd-value {
+    font-size: 0.95rem;
+    color: #333;
+    font-weight: 500;
+}
+
+.cd-role-badge {
+    display: inline-block;
+    padding: 3px 12px;
+    background: #e8f4fd;
+    color: #2563eb;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+    .cd-cards {
+        grid-template-columns: 1fr;
+    }
+    .cd-banner {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+    }
+}

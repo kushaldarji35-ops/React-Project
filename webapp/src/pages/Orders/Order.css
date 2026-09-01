@@ -1,0 +1,327 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ── Page Layout ── */
+.order-page {
+    min-height: 100vh;
+    background: #f0f2f5;
+    font-family: 'Inter', sans-serif;
+    display: flex;
+}
+
+.order-main {
+    margin-left: 220px;
+    padding: 32px;
+    flex: 1;
+}
+
+
+/* ── Page Header ── */
+.order-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+.order-page-header h2 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin: 0;
+}
+
+.order-subtitle {
+    color: #888;
+    font-size: 0.875rem;
+    margin: 4px 0 0;
+}
+
+.btn-add {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    color: white;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+}
+
+.btn-add:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+
+/* ── Alerts ── */
+.order-alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.order-alert-error {
+    background: #fff0f0;
+    border: 1px solid #ffcccc;
+    color: #c62828;
+}
+
+.order-alert-success {
+    background: #f0fff4;
+    border: 1px solid #b7f5c8;
+    color: #2e7d32;
+}
+
+
+/* ── Filters ── */
+.order-filters {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.order-search {
+    flex: 1;
+    min-width: 220px;
+    padding: 10px 14px;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: 'Inter', sans-serif;
+    background: white;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.order-search:focus {
+    border-color: #4f46e5;
+}
+
+.order-filter-select {
+    padding: 10px 14px;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: 'Inter', sans-serif;
+    background: white;
+    outline: none;
+    cursor: pointer;
+    color: #333;
+    transition: border-color 0.2s;
+}
+
+.order-filter-select:focus {
+    border-color: #4f46e5;
+}
+
+
+/* ── Add / Edit Form ── */
+.order-form {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 16px rgba(79, 70, 229, 0.1);
+    border-left: 4px solid #4f46e5;
+    animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.order-form-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1a1a2e;
+    margin: 0 0 20px;
+}
+
+.order-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.order-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.order-field label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.order-field input,
+.order-field select {
+    padding: 10px 12px;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: 'Inter', sans-serif;
+    color: #222;
+    background: #fafafa;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.order-field input:focus,
+.order-field select:focus {
+    border-color: #4f46e5;
+    background: white;
+}
+
+.order-form-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-save {
+    padding: 10px 22px;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.btn-save:hover { opacity: 0.9; }
+
+.btn-cancel {
+    padding: 10px 18px;
+    background: white;
+    color: #555;
+    border: 1.5px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-cancel:hover { background: #f5f5f5; }
+
+
+/* ── Table ── */
+.order-table-wrap {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgb(92, 9, 226);
+    overflow-x: auto;
+}
+
+.order-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.order-table th {
+    background: #f7f8fa;
+    color: #555;
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 16px 18px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.order-table td {
+    padding: 16px 18px;
+    font-size: 0.9rem;
+    color: #333;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.order-table tr:last-child td {
+    border-bottom: none;
+}
+
+.order-table tr:hover td {
+    background: #fafbff;
+}
+
+.order-name {
+    font-weight: 600;
+    color: #1a1a2e !important;
+}
+
+.order-empty {
+    text-align: center;
+    color: #aaa;
+    padding: 40px !important;
+    font-size: 0.95rem;
+}
+
+.order-loading {
+    color: #888;
+    font-size: 0.9rem;
+    margin-top: 20px;
+}
+
+
+/* ── Status Badges ── */
+.badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.badge-pending   { background: #fff8e1; color: #f59e0b; }
+.badge-confirmed { background: #e8f4fd; color: #2563eb; }
+.badge-completed { background: #f0fff4; color: #16a34a; }
+.badge-cancelled { background: #fff0f0; color: #dc2626; }
+
+
+/* ── Row Action Buttons ── */
+.btn-edit {
+    background: #1976d2;
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    margin-right: 6px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-edit:hover { background: #1565c0; }
+
+.btn-delete {
+    background: #d32f2f;
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-delete:hover { background: #b71c1c; }

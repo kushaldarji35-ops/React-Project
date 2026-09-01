@@ -1,0 +1,49 @@
+.customer-order-page {
+    min-height: 100vh;
+    background: #f4f6fb;
+    font-family: 'Inter', sans-serif;
+}
+
+.customer-order-main {
+    max-width: 1200px;
+    margin: 32px auto;
+    padding: 0 24px;
+}
+
+.cd-header-left {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+}
+
+.cd-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.cd-nav-item {
+    color: #ccc;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.cd-nav-item:hover,
+.cd-nav-item.active {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.12);
+    font-weight: 600;
+}
+
+.input-readonly {
+    background-color: #f1f3f9 !important;
+    color: #555566 !important;
+    cursor: not-allowed !important;
+    border-color: #d8dce8 !important;
+    font-weight: 500;
+}
+

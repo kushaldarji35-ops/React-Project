@@ -1,0 +1,78 @@
+.navbar {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    height: 75px;
+    padding: 0 30px;
+    background: #836e39;
+    color: rgb(252, 198, 2);
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.navbar-logo {
+    font-size: 30px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: 1px;
+    color: #f5c518;
+}
+
+.navbar-apex-img {
+    width: 55px;
+    height: 55px;
+    border-radius: 8px;
+    object-fit: contain;
+    background-color: #f9f7f7;
+    border: 1.5px solid rgba(245, 197, 24, 0.8);
+    box-shadow: 0 0 8px rgba(245, 197, 24, 0.4);
+    flex-shrink: 0;
+    padding: 2px;
+}
+
+.navbar-links {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.navbar-links a {
+    color: rgb(252, 198, 2);
+    text-decoration: none;
+    padding: 7px 18px;
+    border: 1.5px solid rgba(252, 198, 2, 0.6);
+       font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    transition: background 0.25s, color 0.25s, border-color 0.25s;
+}
+
+.navbar-links a:hover {
+    background: rgba(252, 198, 2, 0.15);
+    border-color: rgb(252, 198, 2);
+    text-decoration: none;
+    color: #fff;
+}
+
+.navbar-links button {
+    padding: 7px 18px;
+    border: 1.5px solid #e53935;
+    border-radius: 50px;
+    background: #e53935;
+    color: white;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    transition: background 0.25s, border-color 0.25s;
+}
+
+.navbar-links button:hover {
+    background: #c62828;
+    border-color: #c62828;
+}
+

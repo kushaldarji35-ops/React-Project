@@ -1,0 +1,121 @@
+.dashboard {
+    min-height: 100vh;
+    background: #f5f6f8;
+}
+
+.dashboard-content {
+    margin-left: 240px;
+}
+
+.dashboard-body {
+    padding: 30px;
+}
+
+.dashboard-body h1 {
+    color: #1a1a2e;
+}
+
+/* Header row — title left, clock right */
+.dashboard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 30px;
+}
+
+
+/* Cards */
+
+.dashboard-cards {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 16px;
+    margin-bottom: 30px;
+}
+
+.dashboard-card {
+    background: white;
+    min-height: 130px;
+    padding: 20px;
+    border-radius: 14px;
+    box-sizing: border-box;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease,
+                box-shadow 0.2s ease;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-3px);
+
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.dashboard-card h3 {
+    margin: 0 0 18px;
+
+    color: #555;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.dashboard-card p {
+    margin: 0;
+
+    font-size: 28px;
+    font-weight: bold;
+
+    color: #1a1a2e;
+}
+
+.dashboard-clock {
+    flex-shrink: 0;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+
+.dashboard-clock iframe {
+    display: block;
+}
+
+/* Welcome */
+
+.dashboard-welcome {
+    margin-top: 25px;
+
+    padding: 25px;
+
+    background: white;
+
+    border-radius: 12px;
+}
+
+.dashboard-welcome h2 {
+    margin-bottom: 10px;
+}
+
+.dashboard-welcome p {
+    color: #1a1919;
+    font-size: 16px;
+    text-decoration: underline;
+}
+
+.user-chart {
+    background: #ffffff;
+    padding: 25px;
+    margin-top: 25px;
+    margin-right: 625px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.user-chart h2 {
+    margin-bottom: 20px;
+    font-size: 20px;
+    color: #333;
+}

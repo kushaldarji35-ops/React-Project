@@ -1,0 +1,361 @@
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+    getCustomerOrders,
+    createCustomerOrder,
+    updateCustomerOrder,
+    deleteCustomerOrder
+} from "../../services/authServices";
+import "../Orders/Order.css";
+import "./CustomerOrder.css";
+
+const EMPTY_FORM = {
+    customer: "",
+    email: "",
+    item: "",
+    order_date: "",
+    status: "Pending"
+};
+
+const STATUS_OPTIONS = ["Pending", "Confirmed", "Completed", "Cancelled"];
+
+function CustomerOrder() {
+    const navigate = useNavigate();
+    const [user, setUser] = useState(null);
+    const [orders, setOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [successMsg, setSuccessMsg] = useState("");
+
+    // "add" | "edit" | null
+    const [mode, setMode] = useState(null);
+    const [editId, setEditId] = useState(null);
+    const [formData, setFormData] = useState(EMPTY_FORM);
+    const [search, setSearch] = useState("");
+    const [filterStatus, setFilterStatus] = useState("All");
+
+    useEffect(() => {
+        const stored = localStorage.getItem("user");
+        if (stored) {
+            setUser(JSON.parse(stored));
+        }
+    }, []);
+
+    const handleLogout = () => {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        navigate("/login");
+    };
+
+    /* ── Load ── */
+    const loadOrders = async () => {
+        try {
+            setLoading(true);
+            setError("");
+            const data = await getCustomerOrders();
+            setOrders(Array.isArray(data) ? data : []);
+        } catch (err) {
+            if (err.response?.status === 401) {
+                localStorage.removeItem("token");
+                window.location.href = "/login";
+            } else {
+                setError(err.response?.data?.message || "Failed to fetch orders.");
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => { loadOrders(); }, []);
+
+    /* ── Helpers ── */
+    const flash = (msg) => {
+        setSuccessMsg(msg);
+        setTimeout(() => setSuccessMsg(""), 3000);
+    };
+
+    const openAdd = () => {
+        setFormData({
+            customer: user?.name || "",
+            email: user?.email || "",
+            item: "",
+            order_date: new Date().toISOString().slice(0, 10),
+            status: "Pending"
+        });
+        setEditId(null);
+        setMode("add");
+    };
+
+    const openEdit = (order) => {
+        setFormData({
+            customer: order.customer,
+            email: order.email || user?.email || "",
+            item: order.item,
+            order_date: order.order_date?.slice(0, 10) ?? "",
+            status: order.status
+        });
+        setEditId(order.id);
+        setMode("edit");
+    };
+
+    const closeForm = () => {
+        setMode(null);
+        setEditId(null);
+        setFormData(EMPTY_FORM);
+    };
+
+    const handleChange = (e) =>
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+
+    /* ── Submit ── */
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            const payload = {
+                ...formData,
+                email: formData.email || user?.email || "",
+                customer: formData.customer || user?.name || "Customer"
+            };
+
+            if (mode === "add") {
+                await createCustomerOrder(payload);
+                flash("Order created successfully!");
+            } else {
+                await updateCustomerOrder(editId, payload);
+                flash("Order updated successfully!");
+            }
+            closeForm();
+            loadOrders();
+        } catch (err) {
+            setError(err.response?.data?.message || "Operation failed.");
+        }
+    };
+
+    /* ── Delete ── */
+    const handleDelete = async (id) => {
+        if (!window.confirm("Delete this order?")) return;
+        try {
+            await deleteCustomerOrder(id);
+            flash("Order deleted.");
+            loadOrders();
+        } catch (err) {
+            setError(err.response?.data?.message || "Failed to delete order.");
+        }
+    };
+
+    /* ── Filter ── */
+    const filtered = orders.filter((o) => {
+        const matchSearch =
+            o.customer?.toLowerCase().includes(search.toLowerCase()) ||
+            o.email?.toLowerCase().includes(search.toLowerCase()) ||
+            o.item?.toLowerCase().includes(search.toLowerCase());
+        const matchStatus = filterStatus === "All" || o.status === filterStatus;
+        return matchSearch && matchStatus;
+    });
+
+    /* ── Status badge colour ── */
+    const badgeClass = (status) => {
+        switch (status) {
+            case "Confirmed":  return "badge badge-confirmed";
+            case "Completed":  return "badge badge-completed";
+            case "Cancelled":  return "badge badge-cancelled";
+            default:           return "badge badge-pending";
+        }
+    };
+
+    return (
+        <div className="customer-order-page">
+
+            {/* Header */}
+            <header className="cd-header">
+                <div className="cd-header-left">
+                    <Link to="/CustomerDashboard" className="cd-logo">🛍️ My Account</Link>
+                    <nav className="cd-nav-links">
+                        <Link to="/CustomerDashboard" className="cd-nav-item">Dashboard</Link>
+                        <Link to="/CustomerOrder" className="cd-nav-item active">Orders</Link>
+                    </nav>
+                </div>
+                <div className="cd-header-right">
+                    <span className="cd-welcome">
+                        Hello, <strong>{user?.name || "Customer"}</strong>
+                    </span>
+                    <button className="cd-logout-btn" onClick={handleLogout}>
+                        Logout
+                    </button>
+                </div>
+            </header>
+
+            <main className="customer-order-main">
+
+                {/* ── Page Header ── */}
+                <div className="order-page-header">
+                    <div>
+                        <h2>My Orders</h2>
+                        <p className="order-subtitle">
+                            {orders.length} total order{orders.length !== 1 ? "s" : ""}
+                        </p>
+                    </div>
+                    <button className="btn-add" onClick={openAdd}>
+                        + Add Order
+                    </button>
+                </div>
+
+                {/* ── Alerts ── */}
+                {error      && <p className="order-alert order-alert-error">{error}</p>}
+                {successMsg && <p className="order-alert order-alert-success">{successMsg}</p>}
+
+                {/* ── Filters ── */}
+                <div className="order-filters">
+                    <input
+                        className="order-search"
+                        type="text"
+                        placeholder="Search by name, email or service…"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                    <select
+                        className="order-filter-select"
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                    >
+                        <option value="All">All Status</option>
+                        {STATUS_OPTIONS.map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* ── Add / Edit Form ── */}
+                {mode && (
+                    <form className="order-form" onSubmit={handleSubmit}>
+                        <h3 className="order-form-title">
+                            {mode === "add" ? "➕ New Order" : "✏️ Edit Order"}
+                        </h3>
+
+                        <div className="order-form-grid">
+                            <div className="order-field">
+                                <label>Customer Name</label>
+                                <input
+                                    type="text"
+                                    name="customer"
+                                    value={formData.customer}
+                                    onChange={handleChange}
+                                    placeholder="Full name"
+                                    required
+                                />
+                            </div>
+                            <div className="order-field">
+                                <label>Email (Auto-fetched)</label>
+                                <input
+                                    type="email"
+                                    name="email"
+                                    value={formData.email || user?.email || ""}
+                                    readOnly
+                                    className="input-readonly"
+                                    placeholder="Auto-fetched from login"
+                                    required
+                                />
+                            </div>
+                            <div className="order-field">
+                                <label>Item</label>
+                                <input
+                                    type="text"
+                                    name="item"
+                                    value={formData.item}
+                                    onChange={handleChange}
+                                    placeholder="Item or service"
+                                    required
+                                />
+                            </div>
+                            <div className="order-field">
+                                <label>Order Date</label>
+                                <input
+                                    type="date"
+                                    name="order_date"
+                                    value={formData.order_date}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="order-form-actions">
+                            <button type="submit" className="btn-save">
+                                {mode === "add" ? "Create Order" : "Save Changes"}
+                            </button>
+                            <button type="button" className="btn-cancel" onClick={closeForm}>
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                )}
+
+                {/* ── Table ── */}
+                {loading ? (
+                    <p className="order-loading">Loading orders…</p>
+                ) : (
+                    <div className="order-table-wrap">
+                        <table className="order-table">
+                            <thead>
+                                <tr>
+                                    <th>id</th>
+                                    <th>Customer</th>
+                                    <th>Email</th>
+                                    <th>Item</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filtered.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="7" className="order-empty">
+                                            No orders found.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filtered.map((order, i) => (
+                                        <tr key={order.id}>
+                                            <td>{i + 1}</td>
+                                            <td className="order-name">{order.customer}</td>
+                                            <td>{order.email}</td>
+                                            <td>{order.item}</td>
+                                            <td>
+                                                {order.order_date
+                                                    ? new Date(order.order_date).toLocaleDateString("en-IN")
+                                                    : "—"}
+                                            </td>
+                                            <td>
+                                                <span className={badgeClass(order.status)}>
+                                                    {order.status}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <button
+                                                    className="btn-edit"
+                                                    onClick={() => openEdit(order)}
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    className="btn-delete"
+                                                    onClick={() => handleDelete(order.id)}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+            </main>
+        </div>
+    );
+}
+
+export default CustomerOrder;
