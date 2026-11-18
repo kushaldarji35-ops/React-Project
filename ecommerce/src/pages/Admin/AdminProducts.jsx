@@ -273,10 +273,10 @@ export default function AdminProducts() {
       });
       await loadProducts();
       setIsAddModalOpen(false);
-      showToast("Product saved to database!");
+      showToast("Product saved!");
     } catch (err) {
       showToast(
-        err.response?.data?.message || "Failed to add product to database.",
+        err.response?.data?.message || "Failed to add product.",
       );
     }
   };
@@ -329,7 +329,7 @@ export default function AdminProducts() {
       });
       await loadProducts();
       setIsEditModalOpen(false);
-      showToast("Product updated in database!");
+      showToast("Product updated!");
     } catch (err) {
       showToast(err.response?.data?.message || "Failed to update product.");
     }
@@ -342,7 +342,7 @@ export default function AdminProducts() {
       await deleteDbProduct(selectedProduct.id);
       await loadProducts();
       setIsDeleteModalOpen(false);
-      showToast("Product deleted from database!");
+      showToast("Product deleted!");
     } catch (err) {
       showToast(err.response?.data?.message || "Failed to delete product.");
     }

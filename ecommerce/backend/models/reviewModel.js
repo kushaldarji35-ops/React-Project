@@ -10,7 +10,7 @@ const initReviewTable = () => {
             order_id INT NULL,
             rating INT NOT NULL,
             comment TEXT NULL,
-            status VARCHAR(50) DEFAULT 'approved',
+            status VARCHAR(50) DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             INDEX idx_review_prod (product_id),
@@ -20,11 +20,23 @@ const initReviewTable = () => {
     db.query(sql, (err) => {
         if (err) {
             console.error("[reviewModel] Error initializing reviews table:", err.message);
+            return;
         }
+        db.query("ALTER TABLE reviews MODIFY COLUMN status VARCHAR(50) DEFAULT 'pending'", () => {});
     });
 };
 
 initReviewTable();
+
+const parseMedia = (review) => {
+    if (!review.media) return { ...review, media: [] };
+    try {
+        return { ...review, media: JSON.parse(review.media) };
+    } catch (error) {
+        console.error("[reviewModel] Could not parse review media:", error.message);
+        return { ...review, media: [] };
+    }
+};
 
 // Get reviews for a specific product
 const getByProductId = (productId, callback) => {
@@ -37,7 +49,9 @@ const getByProductId = (productId, callback) => {
         WHERE r.product_id = ? AND r.status = 'approved'
         ORDER BY r.id DESC
     `;
-    db.query(sql, [productId], callback);
+    db.query(sql, [productId], (err, reviews) => {
+        callback(err, err ? undefined : reviews.map(parseMedia));
+    });
 };
 
 // Get all reviews (for admin, with user and product details)
@@ -68,7 +82,9 @@ const getAll = (filters = {}, callback) => {
 
     sql += " ORDER BY r.id DESC";
 
-    db.query(sql, params, callback);
+    db.query(sql, params, (err, reviews) => {
+        callback(err, err ? undefined : reviews.map(parseMedia));
+    });
 };
 
 // Get review by ID
@@ -80,12 +96,14 @@ const getById = (id, callback) => {
         LEFT JOIN products p ON r.product_id = p.id
         WHERE r.id = ?
     `;
-    db.query(sql, [id], callback);
+    db.query(sql, [id], (err, reviews) => {
+        callback(err, err || !reviews?.length ? reviews : parseMedia(reviews[0]));
+    });
 };
 
 // Create a new review
 const create = (userId, data, callback) => {
-    const { product_id, order_id = null, rating, comment, status = "approved" } = data;
+    const { product_id, order_id = null, rating, comment, status = "pending" } = data;
 
     const sql = `
         INSERT INTO reviews (user_id, product_id, order_id, rating, comment, status)

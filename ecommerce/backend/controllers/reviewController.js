@@ -1,4 +1,5 @@
 import reviewModel from "../models/reviewModel.js";
+import { removeReviewUploads, uploadedReviewFiles } from "../middleware/reviewUpload.js";
 
 // GET /api/reviews/product/:productId - get approved reviews for a product
 const getProductReviews = (req, res) => {
@@ -24,24 +25,37 @@ const createReview = (req, res) => {
 
     const actualProductId = product_id || productId;
     if (!actualProductId || rating === undefined || rating === null) {
+        removeReviewUploads(uploadedReviewFiles(req));
         return res.status(400).json({ message: "Product ID and rating (1-5) are required" });
     }
 
     const numericRating = Number(rating);
-    if (numericRating < 1 || numericRating > 5) {
+    if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
+        removeReviewUploads(uploadedReviewFiles(req));
         return res.status(400).json({ message: "Rating must be between 1 and 5" });
     }
+    if (typeof comment === "string" && comment.length > 2000) {
+        removeReviewUploads(uploadedReviewFiles(req));
+        return res.status(400).json({ message: "Review text must be 2000 characters or fewer." });
+    }
 
+    const media = uploadedReviewFiles(req).map((file) => ({
+        type: file.mimetype.startsWith("image/") ? "image" : "video",
+        url: `/uploads/reviews/${file.filename}`,
+        name: file.originalname
+    }));
     const reviewData = {
         product_id: actualProductId,
         order_id: order_id || orderId || null,
         rating: numericRating,
         comment: comment || null,
-        status: "approved"
+        media,
+        status: "pending"
     };
 
     reviewModel.create(req.user.id, reviewData, (err, result) => {
         if (err) {
+            removeReviewUploads(uploadedReviewFiles(req));
             console.error("Review creation error:", err);
             return res.status(500).json({ message: "Error submitting review", error: err.message });
         }

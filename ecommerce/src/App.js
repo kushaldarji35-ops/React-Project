@@ -1,8 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { IoCheckmarkCircleOutline } from "react-icons/io5";
 import { CartProvider } from "./context/CartContext";
-import { isSessionExpired, clearSession } from "./services/authService";
+import {
+  isSessionExpired,
+  clearSession,
+  recordUserActivity,
+} from "./services/authService";
 import Layout from "./components/layout/Layout";
 import Home from "./pages/Home";
 import CategoryPage from "./pages/CategoryPage";
@@ -95,6 +106,64 @@ function GlobalToast() {
   );
 }
 
+function SessionExpirationRedirect() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const redirectToLogin = () => {
+      navigate("/login?expired=1", { replace: true });
+    };
+
+    const handleSessionExpired = (event) => {
+      if (event.detail?.reason === "expired") {
+        redirectToLogin();
+      }
+    };
+
+    const handleStorage = (event) => {
+      if (event.key === "sessionExpired" && event.newValue === "true") {
+        redirectToLogin();
+      }
+    };
+
+    const checkSession = () => {
+      if (localStorage.getItem("token") && isSessionExpired()) {
+        clearSession("expired");
+      }
+    };
+
+    const handleUserActivity = () => {
+      if (localStorage.getItem("token") && isSessionExpired()) {
+        clearSession("expired");
+        return;
+      }
+      recordUserActivity();
+    };
+
+    window.addEventListener("sessionExpiredEvent", handleSessionExpired);
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("pointerdown", handleUserActivity);
+    window.addEventListener("keydown", handleUserActivity);
+    window.addEventListener("touchstart", handleUserActivity);
+    window.addEventListener("scroll", handleUserActivity);
+
+    checkSession();
+    const intervalId = window.setInterval(checkSession, 15000);
+
+    return () => {
+      window.removeEventListener("sessionExpiredEvent", handleSessionExpired);
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("pointerdown", handleUserActivity);
+      window.removeEventListener("keydown", handleUserActivity);
+      window.removeEventListener("touchstart", handleUserActivity);
+      window.removeEventListener("scroll", handleUserActivity);
+      window.clearInterval(intervalId);
+    };
+  }, [navigate]);
+
+  return null;
+}
+
 function AdminRoute({ children }) {
   const token = localStorage.getItem("token");
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -141,6 +210,7 @@ function App() {
     <CartProvider>
       <BrowserRouter>
         <GlobalToast />
+        <SessionExpirationRedirect />
         {/* <SessionExpiredModal /> */}
         <Routes>
           {/* Auth routes without Header and Footer */}

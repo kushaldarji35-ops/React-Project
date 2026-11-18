@@ -21,9 +21,12 @@ export default function AdminSearchableSelect({
   id,
   style,
   allowClear = false,
+  dropUp = false,
+  placement: propPlacement,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [placement, setPlacement] = useState(propPlacement || (dropUp ? "top" : "bottom"));
   const containerRef = useRef(null);
   const searchInputRef = useRef(null);
   const listRef = useRef(null);
@@ -91,16 +94,53 @@ export default function AdminSearchableSelect({
     };
   }, [isOpen]);
 
-  // Focus search input on open
+  // Focus search input and determine placement on open
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => {
         searchInputRef.current?.focus();
       }, 50);
+
+      // Auto-detect placement if not explicitly forced
+      if (propPlacement) {
+        setPlacement(propPlacement);
+      } else if (dropUp) {
+        setPlacement("top");
+      } else if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const dropdownEstHeight = 220;
+        const spaceBelowWindow = window.innerHeight - rect.bottom;
+        const spaceAboveWindow = rect.top;
+
+        // Check closest scrollable modal/container
+        const scrollParent = containerRef.current.closest(
+          ".adm-modal, .adm-modal-body, .adm-table-responsive"
+        );
+        let spaceBelowContainer = spaceBelowWindow;
+        let spaceAboveContainer = spaceAboveWindow;
+
+        if (scrollParent) {
+          const parentRect = scrollParent.getBoundingClientRect();
+          spaceBelowContainer = parentRect.bottom - rect.bottom;
+          spaceAboveContainer = rect.top - parentRect.top;
+        }
+
+        const availableBelow = Math.min(spaceBelowWindow, spaceBelowContainer);
+        const availableAbove = Math.min(spaceAboveWindow, spaceAboveContainer);
+
+        if (availableBelow < dropdownEstHeight && availableAbove > availableBelow) {
+          setPlacement("top");
+        } else {
+          setPlacement("bottom");
+        }
+      }
     } else {
       setSearchTerm("");
+      if (!propPlacement && !dropUp) {
+        setPlacement("bottom");
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, propPlacement, dropUp]);
 
   const handleToggle = () => {
     if (disabled) return;
@@ -208,7 +248,11 @@ export default function AdminSearchableSelect({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="adm-searchable-select-dropdown animate-fadeIn">
+        <div
+          className={`adm-searchable-select-dropdown ${
+            placement === "top" ? "adm-searchable-select-dropdown--top" : ""
+          } animate-fadeIn`}
+        >
           {/* Search Bar */}
           <div className="adm-searchable-select-search-wrap">
             <IoSearchOutline className="adm-searchable-select-search-icon" size={16} />

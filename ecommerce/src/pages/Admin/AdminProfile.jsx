@@ -374,6 +374,7 @@ export default function AdminProfile() {
             {isEditing ? (
               <form onSubmit={handleSaveProfile}>
                 <div
+                  className="adm-profile-form-grid"
                   style={{
                     display: "grid",
                     gridTemplateColumns: "1fr 1fr",
@@ -475,6 +476,7 @@ export default function AdminProfile() {
               </form>
             ) : (
               <div
+                className="adm-profile-details-grid"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "1fr 1fr",

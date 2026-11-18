@@ -14,6 +14,7 @@ import {
 } from "react-icons/io5";
 import AdminSidebar from "./AdminSidebar";
 import AdminPagination from "./AdminPagination";
+import AdminSearchableSelect from "./AdminSearchableSelect";
 import {
   getUsers,
   createAdminUser,
@@ -31,6 +32,7 @@ export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
 
@@ -65,9 +67,7 @@ export default function AdminUsers() {
     }
   }, [navigate]);
 
-  const isAdminUser = (u) => (u?.role || "").toLowerCase() === "admin";
-
-  // Fetch all users directly from the database
+  // Fetch all users directly from the database (both Admins and Customers)
   const fetchUsersList = useCallback(async () => {
     try {
       setLoading(true);
@@ -106,11 +106,8 @@ export default function AdminUsers() {
     fetchUsersList();
   }, [fetchUsersList]);
 
-  // Filter only Customers (Exclude Admins)
-  const customers = users.filter((u) => !isAdminUser(u));
-
-  // Filtered Customers based on search
-  const filteredUsers = customers.filter((u) => {
+  // Filter users based on search and role
+  const filteredUsers = users.filter((u) => {
     const nameMatch = (u.name || "")
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
@@ -118,13 +115,19 @@ export default function AdminUsers() {
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
     const phoneMatch = (u.mobile || "").includes(searchTerm);
-    return nameMatch || emailMatch || phoneMatch;
+    const searchMatch = nameMatch || emailMatch || phoneMatch;
+
+    const roleMatch =
+      roleFilter === "all" ||
+      (u.role || "").toLowerCase() === roleFilter.toLowerCase();
+
+    return searchMatch && roleMatch;
   });
 
-  // Reset pagination on search change
+  // Reset pagination on search or filter change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, roleFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -133,8 +136,9 @@ export default function AdminUsers() {
     safeCurrentPage * pageSize
   );
 
-  const totalCustomers = customers.length;
-  const activeCustomers = customers.length;
+  const totalUsers = users.length;
+  const totalCustomers = users.filter((u) => u.role !== "admin").length;
+  const totalAdmins = users.filter((u) => u.role === "admin").length;
 
   // Handle Add Form
   const handleOpenAdd = () => {
@@ -165,12 +169,12 @@ export default function AdminUsers() {
     try {
       setActionLoading(true);
       await createAdminUser(formData);
-      showToast(`Customer ${formData.name} created successfully!`);
+      showToast(`User ${formData.name} created successfully!`);
       setIsAddModalOpen(false);
       fetchUsersList();
     } catch (err) {
       console.error("Error creating user:", err);
-      showToast("Customer created successfully!");
+      showToast("User created successfully!");
       setIsAddModalOpen(false);
       fetchUsersList();
     } finally {
@@ -185,7 +189,7 @@ export default function AdminUsers() {
       name: user.name || "",
       email: user.email || "",
       mobile: user.mobile || "",
-      role: "customer",
+      role: user.role || "customer",
     });
     setFormErrors({});
     setIsEditModalOpen(true);
@@ -201,12 +205,12 @@ export default function AdminUsers() {
     try {
       setActionLoading(true);
       await updateUser(selectedUser.id, formData);
-      showToast("Customer details updated successfully!");
+      showToast("User details updated successfully!");
       setIsEditModalOpen(false);
       fetchUsersList();
     } catch (err) {
       console.error("Error updating user:", err);
-      showToast("Customer details updated successfully!");
+      showToast("User details updated successfully!");
       setIsEditModalOpen(false);
       fetchUsersList();
     } finally {
@@ -225,12 +229,12 @@ export default function AdminUsers() {
     try {
       setActionLoading(true);
       await deleteUser(selectedUser.id);
-      showToast(`Customer ${selectedUser.name} deleted successfully!`);
+      showToast(`User ${selectedUser.name} deleted successfully!`);
       setIsDeleteModalOpen(false);
       fetchUsersList();
     } catch (err) {
       console.error("Error deleting user:", err);
-      showToast(`Customer ${selectedUser.name} deleted successfully!`);
+      showToast(`User ${selectedUser.name} deleted successfully!`);
       setIsDeleteModalOpen(false);
       fetchUsersList();
     } finally {
@@ -269,11 +273,7 @@ export default function AdminUsers() {
         {/* Header */}
         <div className="adm-header">
           <div className="adm-header-left">
-            <h1 className="adm-title">Customers Management</h1>
-            <p className="adm-subtitle">
-              Manage all registered customer accounts and buyer details in
-              database
-            </p>
+            <h1 className="adm-title">Users Management</h1>
           </div>
           <div className="adm-header-right">
             <div className="adm-user-chip">
@@ -292,38 +292,36 @@ export default function AdminUsers() {
 
         {/* KPI Cards */}
         <div className="adm-cardGrid">
+          <div className="adm-card adm-card--indigo">
+            <div className="adm-card-content">
+              <span className="adm-cardLabel">Total Accounts</span>
+              <span className="adm-cardValue">{totalUsers}</span>
+              <span className="adm-cardSubtext">All registered users in DB</span>
+            </div>
+            <div className="adm-cardIconWrap">
+              <IoPeopleOutline />
+            </div>
+          </div>
+
           <div className="adm-card adm-card--green">
             <div className="adm-card-content">
-              <span className="adm-cardLabel">Total Customers</span>
+              <span className="adm-cardLabel">Customers</span>
               <span className="adm-cardValue">{totalCustomers}</span>
-              <span className="adm-cardSubtext">
-                Registered customer accounts
-              </span>
+              <span className="adm-cardSubtext">Registered storefront buyers</span>
             </div>
             <div className="adm-cardIconWrap">
               <IoPersonOutline />
             </div>
           </div>
 
-          <div className="adm-card adm-card--indigo">
+          <div className="adm-card adm-card--purple">
             <div className="adm-card-content">
-              <span className="adm-cardLabel">Active Accounts</span>
-              <span className="adm-cardValue">{activeCustomers}</span>
-              <span className="adm-cardSubtext">In good standing</span>
+              <span className="adm-cardLabel">Administrators</span>
+              <span className="adm-cardValue">{totalAdmins}</span>
+              <span className="adm-cardSubtext">Admin panel access</span>
             </div>
             <div className="adm-cardIconWrap">
               <IoShieldCheckmarkOutline />
-            </div>
-          </div>
-
-          <div className="adm-card adm-card--purple">
-            <div className="adm-card-content">
-              <span className="adm-cardLabel">Search Results</span>
-              <span className="adm-cardValue">{filteredUsers.length}</span>
-              <span className="adm-cardSubtext">Matching current query</span>
-            </div>
-            <div className="adm-cardIconWrap">
-              <IoPeopleOutline />
             </div>
           </div>
         </div>
@@ -335,16 +333,29 @@ export default function AdminUsers() {
               <IoSearchOutline size={18} color="#64748b" />
               <input
                 type="text"
-                placeholder="Search customers"
+                placeholder="Search by name, email, or mobile..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
 
+            <AdminSearchableSelect
+              className="adm-selectFilter"
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              placeholder="All Roles"
+              options={[
+                { value: "all", label: "All Roles" },
+                { value: "customer", label: "Customer" },
+                { value: "admin", label: "Admin" },
+              ]}
+            />
+
             <button
               className="adm-btn-refresh"
               onClick={() => {
                 setSearchTerm("");
+                setRoleFilter("all");
                 showToast("Filters cleared");
               }}
               title="Clear Filters"
@@ -356,17 +367,17 @@ export default function AdminUsers() {
 
           <button className="adm-btn-primary" onClick={handleOpenAdd}>
             <IoPersonAddOutline size={16} />
-            <span>Add New Customer</span>
+            <span>Add New User</span>
           </button>
         </div>
 
-        {/* Customers Table with separate columns for Customer Name, Email ID, Mobile Number */}
+        {/* Users Table */}
         <div className="adm-table-card">
           <div className="adm-table-responsive">
             <table className="adm-table">
               <thead>
                 <tr>
-                  <th>Customer Name</th>
+                  <th>User / Customer Name</th>
                   <th>Email ID</th>
                   <th>Mobile Number</th>
                   <th>Role</th>
@@ -382,7 +393,7 @@ export default function AdminUsers() {
                       colSpan="7"
                       style={{ textAlign: "center", padding: "40px" }}
                     >
-                      Loading customers...
+                      Loading users...
                     </td>
                   </tr>
                 ) : filteredUsers.length === 0 ? (
@@ -390,16 +401,16 @@ export default function AdminUsers() {
                     <td colSpan="7">
                       <div className="adm-empty">
                         <div className="adm-empty-icon">👥</div>
-                        <h3 className="adm-empty-title">No customers found</h3>
+                        <h3 className="adm-empty-title">No users found</h3>
                         <p>
-                          No customer accounts match your active search query.
+                          No user accounts match your active search query.
                         </p>
                       </div>
                     </td>
                   </tr>
                 ) : (
                   paginatedUsers.map((user) => {
-                    const initial = (user.name || "C").charAt(0).toUpperCase();
+                    const initial = (user.name || "U").charAt(0).toUpperCase();
                     const joinedFormatted = user.created_at
                       ? new Date(user.created_at).toLocaleDateString("en-US", {
                           year: "numeric",
@@ -408,14 +419,32 @@ export default function AdminUsers() {
                         })
                       : "Recent";
 
+                    const isAdmin = user.role === "admin";
+
                     return (
                       <tr key={user.id}>
                         <td>
-                          <div className="adm-user-cell">
+                          <div className="adm-user-cell" style={{ whiteSpace: "nowrap" }}>
                             <div className="adm-avatar">{initial}</div>
-                            <span className="adm-user-fullname">
-                              {user.name}
-                            </span>
+                            <div
+                              className="adm-user-fullname"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              <span>{user.name}</span>
+                              {isAdmin && (
+                                <IoShieldCheckmarkOutline
+                                  size={15}
+                                  color="#6366f1"
+                                  style={{ flexShrink: 0 }}
+                                  title="Administrator"
+                                />
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td>
@@ -429,8 +458,12 @@ export default function AdminUsers() {
                           </span>
                         </td>
                         <td>
-                          <span className="adm-badge adm-badge--customer">
-                            Customer
+                          <span
+                            className={`adm-badge ${
+                              isAdmin ? "adm-badge--admin" : "adm-badge--customer"
+                            }`}
+                          >
+                            {isAdmin ? "Admin" : "Customer"}
                           </span>
                         </td>
                         <td>{joinedFormatted}</td>
@@ -446,14 +479,14 @@ export default function AdminUsers() {
                           >
                             <button
                               className="adm-btn-action adm-btn-action--edit"
-                              title="Edit Customer"
+                              title="Edit User"
                               onClick={() => handleOpenEdit(user)}
                             >
                               <IoPencilOutline size={15} />
                             </button>
                             <button
                               className="adm-btn-action adm-btn-action--delete"
-                              title="Delete Customer"
+                              title="Delete User"
                               onClick={() => handleOpenDelete(user)}
                             >
                               <IoTrashOutline size={15} />
@@ -481,12 +514,12 @@ export default function AdminUsers() {
           />
         </div>
 
-        {/* ─── ADD CUSTOMER MODAL ─── */}
+        {/* ─── ADD USER MODAL ─── */}
         {isAddModalOpen && (
           <div className="adm-modal-overlay">
             <div className="adm-modal">
               <div className="adm-modal-header">
-                <h3 className="adm-modal-title">Create New Customer</h3>
+                <h3 className="adm-modal-title">Create New User</h3>
                 <button
                   className="adm-modal-close"
                   onClick={() => setIsAddModalOpen(false)}
@@ -547,22 +580,39 @@ export default function AdminUsers() {
                     </div>
                   </div>
 
-                  <div className="adm-form-group">
-                    <label className="adm-form-label">Password *</label>
-                    <input
-                      type="password"
-                      className="adm-form-input"
-                      placeholder="Min 6 characters"
-                      value={formData.password}
-                      onChange={(e) =>
-                        setFormData({ ...formData, password: e.target.value })
-                      }
-                    />
-                    {formErrors.password && (
-                      <span style={{ color: "#ef4444", fontSize: "12px" }}>
-                        {formErrors.password}
-                      </span>
-                    )}
+                  <div className="adm-form-row">
+                    <div className="adm-form-group">
+                      <label className="adm-form-label">Password *</label>
+                      <input
+                        type="password"
+                        className="adm-form-input"
+                        placeholder="Min 6 characters"
+                        value={formData.password}
+                        onChange={(e) =>
+                          setFormData({ ...formData, password: e.target.value })
+                        }
+                      />
+                      {formErrors.password && (
+                        <span style={{ color: "#ef4444", fontSize: "12px" }}>
+                          {formErrors.password}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="adm-form-group">
+                      <label className="adm-form-label">Role</label>
+                      <AdminSearchableSelect
+                        value={formData.role}
+                        dropUp={true}
+                        onChange={(e) =>
+                          setFormData({ ...formData, role: e.target.value })
+                        }
+                        options={[
+                          { value: "customer", label: "Customer" },
+                          { value: "admin", label: "Admin" },
+                        ]}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -579,7 +629,7 @@ export default function AdminUsers() {
                     className="adm-btn-primary"
                     disabled={actionLoading}
                   >
-                    {actionLoading ? "Creating..." : "Create Customer"}
+                    {actionLoading ? "Creating..." : "Create User"}
                   </button>
                 </div>
               </form>
@@ -587,13 +637,13 @@ export default function AdminUsers() {
           </div>
         )}
 
-        {/* ─── EDIT CUSTOMER MODAL ─── */}
+        {/* ─── EDIT USER MODAL ─── */}
         {isEditModalOpen && selectedUser && (
           <div className="adm-modal-overlay">
             <div className="adm-modal">
               <div className="adm-modal-header">
                 <h3 className="adm-modal-title">
-                  Edit Customer: {selectedUser.name}
+                  Edit User: {selectedUser.name}
                 </h3>
                 <button
                   className="adm-modal-close"
@@ -646,6 +696,21 @@ export default function AdminUsers() {
                       />
                     </div>
                   </div>
+
+                  <div className="adm-form-group">
+                    <label className="adm-form-label">Role</label>
+                    <AdminSearchableSelect
+                      value={formData.role}
+                      dropUp={true}
+                      onChange={(e) =>
+                        setFormData({ ...formData, role: e.target.value })
+                      }
+                      options={[
+                        { value: "customer", label: "Customer" },
+                        { value: "admin", label: "Admin" },
+                      ]}
+                    />
+                  </div>
                 </div>
 
                 <div className="adm-modal-footer">
@@ -669,12 +734,12 @@ export default function AdminUsers() {
           </div>
         )}
 
-        {/* ─── DELETE CUSTOMER MODAL ─── */}
+        {/* ─── DELETE USER MODAL ─── */}
         {isDeleteModalOpen && selectedUser && (
           <div className="adm-modal-overlay">
             <div className="adm-modal" style={{ maxWidth: 420 }}>
               <div className="adm-modal-header">
-                <h3 className="adm-modal-title">Delete Customer</h3>
+                <h3 className="adm-modal-title">Delete User</h3>
                 <button
                   className="adm-modal-close"
                   onClick={() => setIsDeleteModalOpen(false)}
@@ -685,13 +750,25 @@ export default function AdminUsers() {
               <div className="adm-modal-body" style={{ textAlign: "center" }}>
                 <IoAlertCircleOutline size={48} color="#ef4444" />
                 <h4 style={{ margin: "12px 0 6px 0", fontSize: "16px" }}>
-                  Are you sure you want to delete this customer?
+                  Are you sure you want to delete this user?
                 </h4>
                 <p style={{ color: "#64748b", fontSize: "13px", margin: 0 }}>
                   This will permanently remove{" "}
                   <strong>{selectedUser.name}</strong> ({selectedUser.email})
                   from the database.
                 </p>
+                {selectedUser.id === currentUser.id && (
+                  <p
+                    style={{
+                      color: "#dc2626",
+                      fontSize: "12px",
+                      marginTop: 8,
+                      fontWeight: "600",
+                    }}
+                  >
+                    ⚠️ Note: You are currently logged in with this account.
+                  </p>
+                )}
               </div>
               <div
                 className="adm-modal-footer"
@@ -711,7 +788,7 @@ export default function AdminUsers() {
                   disabled={actionLoading}
                   onClick={handleDeleteConfirm}
                 >
-                  {actionLoading ? "Deleting..." : "Yes, Delete Customer"}
+                  {actionLoading ? "Deleting..." : "Yes, Delete User"}
                 </button>
               </div>
             </div>

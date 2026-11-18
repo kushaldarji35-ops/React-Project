@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
+import axios from "axios";
 import { GoArrowLeft, GoArrowRight } from "react-icons/go";
 import { IoCheckmarkCircle } from "react-icons/io5";
 import ProductCard from "../components/ui/ProductCard";
 import StarRating from "../components/ui/StarRating";
 import NewsletterBanner from "../components/layout/NewsletterBanner";
-import { getNewArrivals, getTopSelling, testimonials } from "../data/products";
+import { getNewArrivals, getTopSelling } from "../data/products";
 import { fetchDbProducts } from "../services/productService";
 import { SiGooglegemini } from "react-icons/si";
 import coverPageImg from "../assets/cover page.png";
@@ -48,6 +49,10 @@ export default function Home() {
   const [showAllTopSelling, setShowAllTopSelling] = useState(false);
   const [, setProductsVersion] = useState(0);
 
+  // DB reviews state
+  const [dbReviews, setDbReviews] = useState([]);
+  const [activeTestimonial, setActiveTestimonial] = useState(0);
+
   useEffect(() => {
     fetchDbProducts().catch(() => {});
     const handleUpdate = () => setProductsVersion((v) => v + 1);
@@ -59,16 +64,39 @@ export default function Home() {
     };
   }, []);
 
+  // Fetch approved reviews from DB
+  useEffect(() => {
+    axios
+      .get("http://localhost:5000/api/reviews?status=approved")
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : [];
+        setDbReviews(
+          data.map((r) => ({
+            id: r.id,
+            name: r.user_name || "Customer",
+            rating: Number(r.rating) || 5,
+            comment: r.comment || "",
+            date: r.created_at
+              ? new Date(r.created_at).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                })
+              : "",
+            verified: true,
+          }))
+        );
+      })
+      .catch(() => {});
+  }, []);
+
+  const testimonials = dbReviews.length > 0 ? dbReviews : [];
+  const totalTestimonials = testimonials.length;
+
   const allNewArrivals = getNewArrivals(true);
   const allTopSelling = getTopSelling(true);
-  const newArrivals = showAllNewArrivals
-    ? allNewArrivals
-    : allNewArrivals.slice(0, 4);
-  const topSelling = showAllTopSelling
-    ? allTopSelling
-    : allTopSelling.slice(0, 4);
-  const [activeTestimonial, setActiveTestimonial] = useState(0);
-  const totalTestimonials = testimonials.length;
+  const newArrivals = showAllNewArrivals ? allNewArrivals : allNewArrivals.slice(0, 4);
+  const topSelling = showAllTopSelling ? allTopSelling : allTopSelling.slice(0, 4);
 
   // Marquee: dynamically clone the single brand set to fill any screen size
   const brandsTrackRef = useRef(null);
@@ -100,7 +128,7 @@ export default function Home() {
 
   const handlePrevTestimonial = () => {
     setActiveTestimonial(
-      (prev) => (prev - 1 + totalTestimonials) % totalTestimonials,
+      (prev) => (prev - 1 + totalTestimonials) % totalTestimonials
     );
   };
 
@@ -108,12 +136,11 @@ export default function Home() {
     setActiveTestimonial((prev) => (prev + 1) % totalTestimonials);
   };
 
-  const prevIdx =
-    (activeTestimonial - 1 + totalTestimonials) % totalTestimonials;
-  const center1Idx = activeTestimonial % totalTestimonials;
-  const center2Idx = (activeTestimonial + 1) % totalTestimonials;
-  const center3Idx = (activeTestimonial + 2) % totalTestimonials;
-  const nextIdx = (activeTestimonial + 3) % totalTestimonials;
+  // visible cards: show up to 3 centered cards + 2 blurred peek cards
+  const getCard = (offset) =>
+    totalTestimonials > 0
+      ? testimonials[(activeTestimonial + offset + totalTestimonials * 10) % totalTestimonials]
+      : null;
 
   return (
     <>
@@ -265,127 +292,115 @@ export default function Home() {
       <section className="testimonials">
         <div className="testimonials__header">
           <h2 className="section-title">Our Happy Customers</h2>
-          <div className="testimonials__nav">
-            <button
-              onClick={handlePrevTestimonial}
-              className="testimonials__nav-btn"
-              aria-label="Previous"
-            >
-              <GoArrowLeft size={24} />
-            </button>
-            <button
-              onClick={handleNextTestimonial}
-              className="testimonials__nav-btn"
-              aria-label="Next"
-            >
-              <GoArrowRight size={24} />
-            </button>
-          </div>
+          {totalTestimonials > 1 && (
+            <div className="testimonials__nav">
+              <button
+                onClick={handlePrevTestimonial}
+                className="testimonials__nav-btn"
+                aria-label="Previous"
+              >
+                <GoArrowLeft size={24} />
+              </button>
+              <button
+                onClick={handleNextTestimonial}
+                className="testimonials__nav-btn"
+                aria-label="Next"
+              >
+                <GoArrowRight size={24} />
+              </button>
+            </div>
+          )}
         </div>
 
-        <div className="testimonials__carousel">
-          <div className="testimonials__track">
-            <div className="testimonial-card testimonial-card--blurred testimonial-card--peek">
-              <StarRating rating={testimonials[prevIdx].rating} size="sm" />
-              <div className="testimonial-card__author">
-                <span className="testimonial-card__name">
-                  {testimonials[prevIdx].name}
-                </span>
-                {testimonials[prevIdx].verified && (
-                  <span className="testimonial-card__verified">
-                    <IoCheckmarkCircle size={16} />
-                  </span>
-                )}
-              </div>
-              <p className="testimonial-card__text">
-                "{testimonials[prevIdx].comment}"
-              </p>
-              <p className="testimonial-card__date">
-                {testimonials[prevIdx].date}
-              </p>
-            </div>
+        {totalTestimonials === 0 ? (
+          <p style={{ textAlign: "center", color: "#64748b", margin: "36px 0", fontSize: "14px" }}>
+            No reviews yet. Be the first to leave a review!
+          </p>
+        ) : (
+          <div className="testimonials__carousel">
+            <div className="testimonials__track">
+              {/* Blurred peek left */}
+              {totalTestimonials > 3 && getCard(-1) && (
+                <div className="testimonial-card testimonial-card--blurred testimonial-card--peek">
+                  <StarRating rating={getCard(-1).rating} size="sm" />
+                  <div className="testimonial-card__author">
+                    <span className="testimonial-card__name">{getCard(-1).name}</span>
+                    {getCard(-1).verified && (
+                      <span className="testimonial-card__verified">
+                        <IoCheckmarkCircle size={16} />
+                      </span>
+                    )}
+                  </div>
+                  <p className="testimonial-card__text">"{getCard(-1).comment}"</p>
+                </div>
+              )}
 
-            <div className="testimonial-card">
-              <StarRating rating={testimonials[center1Idx].rating} size="sm" />
-              <div className="testimonial-card__author">
-                <span className="testimonial-card__name">
-                  {testimonials[center1Idx].name}
-                </span>
-                {testimonials[center1Idx].verified && (
-                  <span className="testimonial-card__verified">
-                    <IoCheckmarkCircle size={16} />
-                  </span>
-                )}
-              </div>
-              <p className="testimonial-card__text">
-                "{testimonials[center1Idx].comment}"
-              </p>
-              <p className="testimonial-card__date">
-                {testimonials[center1Idx].date}
-              </p>
-            </div>
+              {/* Card 1 */}
+              {getCard(0) && (
+                <div className="testimonial-card">
+                  <StarRating rating={getCard(0).rating} size="sm" />
+                  <div className="testimonial-card__author">
+                    <span className="testimonial-card__name">{getCard(0).name}</span>
+                    {getCard(0).verified && (
+                      <span className="testimonial-card__verified">
+                        <IoCheckmarkCircle size={16} />
+                      </span>
+                    )}
+                  </div>
+                  <p className="testimonial-card__text">"{getCard(0).comment}"</p>
+                </div>
+              )}
 
-            <div className="testimonial-card testimonial-card--hide-mobile">
-              <StarRating rating={testimonials[center2Idx].rating} size="sm" />
-              <div className="testimonial-card__author">
-                <span className="testimonial-card__name">
-                  {testimonials[center2Idx].name}
-                </span>
-                {testimonials[center2Idx].verified && (
-                  <span className="testimonial-card__verified">
-                    <IoCheckmarkCircle size={16} />
-                  </span>
-                )}
-              </div>
-              <p className="testimonial-card__text">
-                "{testimonials[center2Idx].comment}"
-              </p>
-              <p className="testimonial-card__date">
-                {testimonials[center2Idx].date}
-              </p>
-            </div>
+              {/* Card 2 */}
+              {totalTestimonials > 1 && getCard(1) && (
+                <div className="testimonial-card testimonial-card--hide-mobile">
+                  <StarRating rating={getCard(1).rating} size="sm" />
+                  <div className="testimonial-card__author">
+                    <span className="testimonial-card__name">{getCard(1).name}</span>
+                    {getCard(1).verified && (
+                      <span className="testimonial-card__verified">
+                        <IoCheckmarkCircle size={16} />
+                      </span>
+                    )}
+                  </div>
+                  <p className="testimonial-card__text">"{getCard(1).comment}"</p>
+                </div>
+              )}
 
-            <div className="testimonial-card testimonial-card--hide-tablet">
-              <StarRating rating={testimonials[center3Idx].rating} size="sm" />
-              <div className="testimonial-card__author">
-                <span className="testimonial-card__name">
-                  {testimonials[center3Idx].name}
-                </span>
-                {testimonials[center3Idx].verified && (
-                  <span className="testimonial-card__verified">
-                    <IoCheckmarkCircle size={16} />
-                  </span>
-                )}
-              </div>
-              <p className="testimonial-card__text">
-                "{testimonials[center3Idx].comment}"
-              </p>
-              <p className="testimonial-card__date">
-                {testimonials[center3Idx].date}
-              </p>
-            </div>
+              {/* Card 3 */}
+              {totalTestimonials > 2 && getCard(2) && (
+                <div className="testimonial-card testimonial-card--hide-tablet">
+                  <StarRating rating={getCard(2).rating} size="sm" />
+                  <div className="testimonial-card__author">
+                    <span className="testimonial-card__name">{getCard(2).name}</span>
+                    {getCard(2).verified && (
+                      <span className="testimonial-card__verified">
+                        <IoCheckmarkCircle size={16} />
+                      </span>
+                    )}
+                  </div>
+                  <p className="testimonial-card__text">"{getCard(2).comment}"</p>
+                </div>
+              )}
 
-            <div className="testimonial-card testimonial-card--blurred testimonial-card--peek">
-              <StarRating rating={testimonials[nextIdx].rating} size="sm" />
-              <div className="testimonial-card__author">
-                <span className="testimonial-card__name">
-                  {testimonials[nextIdx].name}
-                </span>
-                {testimonials[nextIdx].verified && (
-                  <span className="testimonial-card__verified">
-                    <IoCheckmarkCircle size={16} />
-                  </span>
-                )}
-              </div>
-              <p className="testimonial-card__text">
-                "{testimonials[nextIdx].comment}"
-              </p>
-              <p className="testimonial-card__date">
-                {testimonials[nextIdx].date}
-              </p>
+              {/* Blurred peek right */}
+              {totalTestimonials > 3 && getCard(3) && (
+                <div className="testimonial-card testimonial-card--blurred testimonial-card--peek">
+                  <StarRating rating={getCard(3).rating} size="sm" />
+                  <div className="testimonial-card__author">
+                    <span className="testimonial-card__name">{getCard(3).name}</span>
+                    {getCard(3).verified && (
+                      <span className="testimonial-card__verified">
+                        <IoCheckmarkCircle size={16} />
+                      </span>
+                    )}
+                  </div>
+                  <p className="testimonial-card__text">"{getCard(3).comment}"</p>
+                </div>
+              )}
             </div>
           </div>
-        </div>
+        )}
       </section>
 
       <NewsletterBanner />

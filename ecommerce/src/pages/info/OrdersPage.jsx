@@ -15,7 +15,6 @@ import {
   IoPencilOutline,
   IoStar,
   IoStarOutline,
-  IoCheckmarkCircleOutline,
 } from "react-icons/io5";
 import { clearSession } from "../../services/authService";
 import Breadcrumb from "../../components/ui/Breadcrumb";
@@ -85,9 +84,11 @@ export default function OrdersPage() {
   // Review Modal State
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [reviewItem, setReviewItem] = useState(null);
-  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewRating, setReviewRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
+  const [reviewImages, setReviewImages] = useState([]);
+  const [reviewVideo, setReviewVideo] = useState(null);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewToast, setReviewToast] = useState("");
   const [reviewError, setReviewError] = useState("");
@@ -100,6 +101,7 @@ export default function OrdersPage() {
   });
 
   const RATING_LABELS = {
+    0: "Select a rating",
     1: "1 - Poor",
     2: "2 - Fair",
     3: "3 - Good",
@@ -116,9 +118,11 @@ export default function OrdersPage() {
       orderNumber: order?.id || order?.orderNumber || "Order",
       orderDate: order?.date || "",
     });
-    setReviewRating(existing ? existing.rating : 5);
+    setReviewRating(existing ? existing.rating : 0);
     setHoverRating(0);
     setReviewComment(existing ? existing.comment : "");
+    setReviewImages([]);
+    setReviewVideo(null);
     setReviewError("");
     setReviewModalOpen(true);
   };
@@ -127,6 +131,8 @@ export default function OrdersPage() {
     setReviewModalOpen(false);
     setReviewItem(null);
     setReviewComment("");
+    setReviewImages([]);
+    setReviewVideo(null);
     setReviewError("");
   };
 
@@ -137,169 +143,55 @@ export default function OrdersPage() {
       setReviewError("Please choose a star rating (1 to 5).");
       return;
     }
+    if (!reviewItem.productId) {
+      setReviewError("This order is not linked to a product, so it cannot be reviewed.");
+      return;
+    }
+
     setIsSubmittingReview(true);
     setReviewError("");
-
-    const key = reviewItem.productId || reviewItem.name;
-    const payload = {
-      product_id: reviewItem.productId || 1,
-      order_id: reviewItem.orderId || null,
-      rating: Number(reviewRating),
-      comment: reviewComment.trim(),
-    };
+    const key = reviewItem.productId;
+    const payload = new FormData();
+    payload.append("product_id", reviewItem.productId);
+    if (reviewItem.orderId) payload.append("order_id", reviewItem.orderId);
+    payload.append("rating", String(Number(reviewRating)));
+    payload.append("comment", reviewComment.trim());
+    reviewImages.forEach((file) => payload.append("reviewImages", file));
+    if (reviewVideo) payload.append("reviewVideo", reviewVideo);
 
     try {
       const token = localStorage.getItem("token");
-      if (token) {
-        await fetch("http://localhost:5000/api/reviews", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        });
+      if (!token) throw new Error("Please sign in to submit a review.");
+      const response = await fetch("http://localhost:5000/api/reviews", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: payload,
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to submit your review.");
       }
+
+      const updated = {
+        ...userReviews,
+        [key]: {
+          rating: Number(reviewRating),
+          comment: reviewComment.trim(),
+          date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+        },
+      };
+      setUserReviews(updated);
+      localStorage.setItem("user_product_reviews", JSON.stringify(updated));
+
+      setReviewToast(`Review for "${reviewItem.name}" submitted successfully!`);
+      setTimeout(() => setReviewToast(""), 4500);
+      closeReviewModal();
     } catch (err) {
-      console.warn("Could not submit review to backend, saving locally:", err);
+      setReviewError(err.message || "Unable to submit your review. Please try again.");
+    } finally {
+      setIsSubmittingReview(false);
     }
-
-    const updated = {
-      ...userReviews,
-      [key]: {
-        rating: Number(reviewRating),
-        comment: reviewComment.trim(),
-        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      },
-    };
-    setUserReviews(updated);
-    localStorage.setItem("user_product_reviews", JSON.stringify(updated));
-
-    setReviewToast(`Review for "${reviewItem.name}" submitted successfully!`);
-    setTimeout(() => setReviewToast(""), 4500);
-    closeReviewModal();
-    setIsSubmittingReview(false);
   };
-
-  // Mock initial orders to show if backend has no orders or guest mode
-  const initialOrders = [
-    {
-      id: "ORD-2026-9841",
-      date: "Oct 12, 2026",
-      rawDate: new Date("2026-10-12T10:00:00"),
-      status: "On the way",
-      total: 145.0,
-      trackingId: "SHP-884920",
-      shippingAddress: "742 Evergreen Terrace, Brooklyn, NY 11201",
-      paymentMethod: "Apple Pay (ending in 8842)",
-      items: [
-        {
-          name: "Heavyweight Boxy T-Shirt",
-          size: "L",
-          color: "Vintage Black",
-          qty: 2,
-          price: 45.0,
-          image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=200&auto=format&fit=crop&q=80",
-        },
-        {
-          name: "Relaxed Fit Denim Jeans",
-          size: "32",
-          color: "Washed Indigo",
-          qty: 1,
-          price: 55.0,
-          image: "https://images.unsplash.com/photo-1542272604-780c96856592?w=200&auto=format&fit=crop&q=80",
-        },
-      ],
-    },
-    {
-      id: "ORD-2026-8712",
-      date: "Oct 02, 2026",
-      rawDate: new Date("2026-10-02T14:30:00"),
-      status: "Delivered",
-      total: 89.0,
-      trackingId: "SHP-772109",
-      shippingAddress: "742 Evergreen Terrace, Brooklyn, NY 11201",
-      paymentMethod: "Visa ending in 4242",
-      items: [
-        {
-          name: "Oversized French Terry Hoodie",
-          size: "M",
-          color: "Oatmeal Heather",
-          qty: 1,
-          price: 89.0,
-          image: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=200&auto=format&fit=crop&q=80",
-        },
-      ],
-    },
-    {
-      id: "ORD-2024-5519",
-      date: "Nov 14, 2024",
-      rawDate: new Date("2024-11-14T09:15:00"),
-      status: "Delivered",
-      total: 195.0,
-      trackingId: "SHP-661245",
-      shippingAddress: "742 Evergreen Terrace, Brooklyn, NY 11201",
-      paymentMethod: "PayPal (user@example.com)",
-      items: [
-        {
-          name: "Tailored Linen Casual Blazer",
-          size: "40R",
-          color: "Sandstone",
-          qty: 1,
-          price: 135.0,
-          image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=200&auto=format&fit=crop&q=80",
-        },
-        {
-          name: "Pleated Chino Trousers",
-          size: "32",
-          color: "Olive Green",
-          qty: 1,
-          price: 60.0,
-          image: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=200&auto=format&fit=crop&q=80",
-        },
-      ],
-    },
-    {
-      id: "ORD-2023-3180",
-      date: "May 20, 2023",
-      rawDate: new Date("2023-05-20T16:45:00"),
-      status: "Cancelled",
-      total: 75.0,
-      trackingId: "SHP-331902",
-      shippingAddress: "742 Evergreen Terrace, Brooklyn, NY 11201",
-      paymentMethod: "Credit Card (ending 9110)",
-      items: [
-        {
-          name: "Minimalist Cotton Crewneck",
-          size: "M",
-          color: "Charcoal",
-          qty: 1,
-          price: 75.0,
-          image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=200&auto=format&fit=crop&q=80",
-        },
-      ],
-    },
-    {
-      id: "ORD-2022-1044",
-      date: "Aug 10, 2022",
-      rawDate: new Date("2022-08-10T11:20:00"),
-      status: "Returned",
-      total: 110.0,
-      trackingId: "SHP-110294",
-      shippingAddress: "742 Evergreen Terrace, Brooklyn, NY 11201",
-      paymentMethod: "Apple Pay (ending 8842)",
-      items: [
-        {
-          name: "Slim Fit Chino Shorts",
-          size: "32",
-          color: "Khaki",
-          qty: 2,
-          price: 55.0,
-          image: "https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=200&auto=format&fit=crop&q=80",
-        },
-      ],
-    },
-  ];
 
   useEffect(() => {
     const fetchOrders = () => {
@@ -344,7 +236,7 @@ export default function OrdersPage() {
                   paymentMethod: String(d.payment_method || "cod").toUpperCase(),
                   items: (d.items || []).map((it) => ({
                     id: it.id,
-                    productId: it.product_id || it.productId || it.id || 1,
+                    productId: it.product_id || it.productId || null,
                     orderId: d.id,
                     orderNumber: d.order_number || String(d.id),
                     name: it.product_name || it.name || "Product",
@@ -361,16 +253,16 @@ export default function OrdersPage() {
               });
               setOrders(formatted);
             } else {
-              setOrders(initialOrders);
+              setOrders([]);
             }
             setLoading(false);
           })
           .catch(() => {
-            setOrders(initialOrders);
+            setOrders([]);
             setLoading(false);
           });
       } else {
-        setOrders(initialOrders);
+        setOrders([]);
         setLoading(false);
       }
     };
@@ -491,6 +383,11 @@ export default function OrdersPage() {
 
   const ordersContent = (
     <>
+      {reviewToast && (
+        <div role="status" style={{ marginBottom: "16px", padding: "12px 16px", borderRadius: "10px", background: "#ecfdf5", color: "#047857" }}>
+          {reviewToast}
+        </div>
+      )}
       <Breadcrumb items={[{ label: "Home", href: "/" }, { label: "My Orders" }]} />
 
       <h1 className="visually-hidden">My Orders</h1>
@@ -683,16 +580,6 @@ export default function OrdersPage() {
                             <div style={{ fontSize: "15px", fontWeight: "700" }}>
                               ${(item.price * item.qty).toFixed(2)}
                             </div>
-                            <button
-                              type="button"
-                              className={`btn-order-review ${hasReviewed ? "btn-order-review--done" : ""}`}
-                              onClick={() => openReviewModal(item, ord)}
-                            >
-                              <IoStar size={14} color={hasReviewed ? "#f59e0b" : "#475569"} />
-                              {hasReviewed
-                                ? `Reviewed ★ ${userReviews[reviewKey].rating}`
-                                : "Write Review"}
-                            </button>
                           </div>
                         </div>
                       );
@@ -751,7 +638,7 @@ export default function OrdersPage() {
                   Clear Filters & Search
                 </button>
               ) : (
-                <Link to="/category/casual" className="btn-solid-black">
+                <Link to="/category/all" className="btn-solid-black">
                   Start Shopping
                 </Link>
               )}
@@ -764,6 +651,112 @@ export default function OrdersPage() {
 
   const modals = (
     <>
+      {/* Write Review Modal */}
+      {reviewModalOpen && reviewItem && (
+        <div className="info-modal-backdrop" onClick={closeReviewModal}>
+          <div className="info-modal-card" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="info-modal-close" onClick={closeReviewModal} aria-label="Close review form">
+              <IoCloseOutline size={20} />
+            </button>
+            <h2 style={{ margin: "0 44px 6px 0", fontSize: "22px", fontWeight: "900" }}>Write a Review</h2>
+            <p style={{ margin: "0 0 20px", color: "#666", fontSize: "14px" }}>
+              {reviewItem.name} · Order #{reviewItem.orderNumber}
+            </p>
+
+            <form onSubmit={handleSubmitReview}>
+              <label style={{ display: "block", fontWeight: "700", marginBottom: "8px" }}>Your rating</label>
+              <div style={{ display: "flex", gap: "6px", marginBottom: "18px" }} role="group" aria-label="Rating">
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <button
+                    key={rating}
+                    type="button"
+                    aria-label={`${rating} star${rating === 1 ? "" : "s"}`}
+                    onMouseEnter={() => setHoverRating(rating)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    onClick={() => setReviewRating(rating)}
+                    style={{ border: 0, background: "transparent", cursor: "pointer", padding: "2px", color: rating <= (hoverRating || reviewRating) ? "#f59e0b" : "#cbd5e1" }}
+                  >
+                    <IoStar size={28} />
+                  </button>
+                ))}
+                <span style={{ alignSelf: "center", marginLeft: "6px", color: "#555", fontSize: "14px" }}>
+                  {RATING_LABELS[hoverRating || reviewRating]}
+                </span>
+              </div>
+
+              <label htmlFor="review-comment" style={{ display: "block", fontWeight: "700", marginBottom: "8px" }}>Your review</label>
+              <textarea
+                id="review-comment"
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                maxLength={2000}
+                rows={1}
+                placeholder="Share your experience with this product"
+                style={{ width: "100%", height: "58px", minHeight: "58px", boxSizing: "border-box", padding: "12px", border: "1px solid #d1d5db", borderRadius: "10px", resize: "vertical", font: "inherit", marginBottom: "16px" }}
+              />
+
+              <label htmlFor="review-images" style={{ display: "block", fontWeight: "700", marginBottom: "6px" }}>Product photos</label>
+              <input
+                id="review-images"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                multiple
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (files.length > 5) {
+                    setReviewError("Choose up to 5 photos.");
+                    e.target.value = "";
+                    return;
+                  }
+                  if (files.some((file) => file.size > 5 * 1024 * 1024)) {
+                    setReviewError("Each photo must be 5 MB or smaller.");
+                    e.target.value = "";
+                    return;
+                  }
+                  setReviewImages(files);
+                  setReviewError("");
+                }}
+                style={{ display: "block", width: "100%", marginBottom: "6px" }}
+              />
+              <small style={{ display: "block", color: "#777", marginBottom: "16px" }}>
+                Up to 5 photos, 5 MB each{reviewImages.length ? ` · ${reviewImages.length} selected` : ""}
+              </small>
+
+              <label htmlFor="review-video" style={{ display: "block", fontWeight: "700", marginBottom: "6px" }}>Product video</label>
+              <input
+                id="review-video"
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  if (file && file.size > 50 * 1024 * 1024) {
+                    setReviewError("The video must be 50 MB or smaller.");
+                    e.target.value = "";
+                    return;
+                  }
+                  setReviewVideo(file);
+                  setReviewError("");
+                }}
+                style={{ display: "block", width: "100%", marginBottom: "6px" }}
+              />
+              <small style={{ display: "block", color: "#777", marginBottom: "18px" }}>
+                MP4, WebM, or MOV up to 50 MB{reviewVideo ? ` · ${reviewVideo.name}` : ""}
+              </small>
+
+              {reviewError && (
+                <p role="alert" style={{ color: "#b91c1c", fontSize: "14px", margin: "0 0 14px" }}>{reviewError}</p>
+              )}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                <button type="button" className="btn-outline" onClick={closeReviewModal} disabled={isSubmittingReview}>Cancel</button>
+                <button type="submit" className="btn-solid-black" disabled={isSubmittingReview}>
+                  {isSubmittingReview ? "Submitting..." : "Submit Review"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Filter Modal */}
       {isFilterOpen && (
         <div className="info-modal-backdrop" onClick={() => setIsFilterOpen(false)}>

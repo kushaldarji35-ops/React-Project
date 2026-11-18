@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   IoEyeOutline,
@@ -20,19 +20,22 @@ export default function LoginPage() {
   const [errors, setErrors] = useState({});
   const [sessionExpired, setSessionExpired] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    // Only show "session expired" when the user was actively redirected
-    // (via ?expired=1), NOT from a stale localStorage flag left over from
-    // a previous day. This prevents the warning on first-visit-of-the-day.
     const wasRedirected = params.get("expired") === "1";
+    const hadExpiredSession = localStorage.getItem("sessionExpired") === "true";
 
-    // Clean up stale localStorage flag regardless
-    if (!wasRedirected) {
+    localStorage.removeItem("sessionExpired");
+    localStorage.removeItem("sessionExpiredRole");
+
+    return wasRedirected || hadExpiredSession;
+  });
+
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get("expired") === "1") {
+      setSessionExpired(true);
       localStorage.removeItem("sessionExpired");
       localStorage.removeItem("sessionExpiredRole");
     }
-
-    return wasRedirected;
-  });
+  }, [location.search]);
 
 
   const handleChange = (e) => {

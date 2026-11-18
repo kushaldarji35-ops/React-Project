@@ -244,7 +244,9 @@ export default function CategoryPage() {
 
   useEffect(() => {
     fetchDbProducts().catch(() => {});
-    fetchDbCategories().then(setCategories).catch(() => {});
+    fetchDbCategories()
+      .then(setCategories)
+      .catch(() => {});
     fetchDbSubcategories()
       .then(setSubcategories)
       .catch((error) => console.error("Failed to load subcategories:", error));
@@ -281,10 +283,13 @@ export default function CategoryPage() {
     women: "formal",
     kids: "party",
   };
-  const categoryFromSlug = categories.find((category) => category.slug === slug);
-  const resolvedCategory = slug === "all"
-    ? null
-    : categoryFromSlug?.name.toLowerCase() ?? SLUG_MAP[slug] ?? slug;
+  const categoryFromSlug = categories.find(
+    (category) => category.slug === slug,
+  );
+  const resolvedCategory =
+    slug === "all"
+      ? null
+      : (categoryFromSlug?.name.toLowerCase() ?? SLUG_MAP[slug] ?? slug);
 
   const filtered = products.filter((p) => {
     if (resolvedCategory && p.category !== resolvedCategory) return false;
@@ -292,7 +297,8 @@ export default function CategoryPage() {
     if (
       filters.subcategory?.length > 0 &&
       !filters.subcategory.includes((p.subcategory || "").toLowerCase())
-    ) return false;
+    )
+      return false;
     if (
       filters.sizes?.length > 50 &&
       !filters.sizes.some((s) => p.sizes.includes(s))
@@ -332,11 +338,11 @@ export default function CategoryPage() {
   const paginated =
     pageSlice.length > 0 ? pageSlice : sorted.slice(0, PRODUCTS_PER_PAGE);
 
-  const categoryLabel = slug === "all"
-    ? "All Products"
-    : categoryFromSlug?.name || (slug
-    ? slug.charAt(0).toUpperCase() + slug.slice(1)
-    : "All");
+  const categoryLabel =
+    slug === "all"
+      ? "All Products"
+      : categoryFromSlug?.name ||
+        (slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : "All");
 
   return (
     <>
