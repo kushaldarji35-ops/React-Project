@@ -504,13 +504,7 @@ export default function AdminCategories() {
                           {cat.createdAt || "—"}
                         </td>
                         <td>
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "flex-end",
-                              gap: 8,
-                            }}
-                          >
+                          <div className="adm-actions-cell" style={{ justifyContent: "flex-end" }}>
                             <button
                               className="adm-action-btn adm-action-btn--edit"
                               onClick={() => handleOpenEdit(cat)}
@@ -804,10 +798,6 @@ export default function AdminCategories() {
                 >
                   Are you sure you want to delete category{" "}
                   <strong>"{selectedCategory.name}"</strong>?
-                </p>
-                <p style={{ color: "var(--adm-text-secondary)", fontSize: 13 }}>
-                  This will remove the category classification. Associated
-                  products will remain in the catalog.
                 </p>
               </div>
               <div className="adm-modal-footer">

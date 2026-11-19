@@ -529,13 +529,7 @@ export default function AdminSubcategories() {
                           {sub.createdAt || "—"}
                         </td>
                         <td>
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "flex-end",
-                              gap: 8,
-                            }}
-                          >
+                          <div className="adm-actions-cell" style={{ justifyContent: "flex-end" }}>
                             <button
                               className="adm-action-btn adm-action-btn--edit"
                               onClick={() => handleOpenEdit(sub)}

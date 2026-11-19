@@ -8,10 +8,8 @@ import {
   IoPricetagOutline,
   IoCheckmarkCircleOutline,
   IoAlertCircleOutline,
-  IoCloseCircleOutline,
   IoCloseOutline,
   IoRefreshOutline,
-  IoCheckmarkOutline,
   IoTimeOutline,
 } from "react-icons/io5";
 import AdminSidebar from "./AdminSidebar";
@@ -26,9 +24,38 @@ import {
 } from "../../services/couponService";
 import "./AdminPages.css";
 
+const formatDateInput = (value) => {
+  if (!value) return "";
+  const dateText = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateText)) return dateText;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(dateText)) {
+    return dateText.slice(0, 10);
+  }
+  const date = new Date(dateText);
+  if (Number.isNaN(date.getTime())) return "";
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+};
+
+const formatDateDisplay = (value) => {
+  const dateInput = formatDateInput(value);
+  if (!dateInput) return "";
+  const [year, month, day] = dateInput.split("-");
+  return `${day}-${month}-${year}`;
+};
+
 export default function AdminCoupons() {
   const navigate = useNavigate();
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const today = new Date();
+  const todayDate = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0"),
+  ].join("-");
 
   const [couponsList, setCouponsList] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -50,7 +77,8 @@ export default function AdminCoupons() {
     discount_percent: "",
     min_order_amount: "",
     max_discount_amount: "",
-    expiry_date: "",
+    start_date: "",
+    end_date: "",
     status: "active",
   });
   const [formErrors, setFormErrors] = useState({});
@@ -100,10 +128,9 @@ export default function AdminCoupons() {
   const activeCoupons = couponsList.filter((c) => {
     const isAct = (c.status || "active").toLowerCase() === "active";
     if (!isAct) return false;
-    if (c.expiry_date) {
-      return new Date(c.expiry_date) >= new Date(new Date().setHours(0, 0, 0, 0));
-    }
-    return true;
+    const startDate = formatDateInput(c.start_date);
+    const endDate = formatDateInput(c.end_date);
+    return (!startDate || startDate <= todayDate) && (!endDate || endDate >= todayDate);
   }).length;
 
   const inactiveCoupons = totalCoupons - activeCoupons;
@@ -124,15 +151,16 @@ export default function AdminCoupons() {
       .includes(searchTerm.toLowerCase());
 
     const isAct = (coupon.status || "active").toLowerCase() === "active";
-    const isExpired =
-      coupon.expiry_date &&
-      new Date(coupon.expiry_date) < new Date(new Date().setHours(0, 0, 0, 0));
+    const startDate = formatDateInput(coupon.start_date);
+    const endDate = formatDateInput(coupon.end_date);
+    const isOutsideValidity =
+      (startDate && startDate > todayDate) || (endDate && endDate < todayDate);
 
     let statusMatch = true;
     if (statusFilter === "active") {
-      statusMatch = isAct && !isExpired;
+      statusMatch = isAct && !isOutsideValidity;
     } else if (statusFilter === "inactive") {
-      statusMatch = !isAct || isExpired;
+      statusMatch = !isAct || isOutsideValidity;
     }
 
     return codeMatch && statusMatch;
@@ -164,7 +192,8 @@ export default function AdminCoupons() {
       discount_percent: "",
       min_order_amount: "",
       max_discount_amount: "",
-      expiry_date: "",
+      start_date: "",
+      end_date: "",
       status: "active",
     });
     setFormErrors({});
@@ -183,6 +212,17 @@ export default function AdminCoupons() {
     ) {
       errs.discount_percent = "Enter valid discount (1 - 100%)";
     }
+    if (!formData.start_date) errs.start_date = "Start date is required";
+    if (!formData.end_date) errs.end_date = "End date is required";
+    if (formData.start_date && formData.start_date < todayDate) {
+      errs.start_date = "Start date cannot be before today";
+    }
+    if (formData.end_date && formData.start_date && formData.end_date < formData.start_date) {
+      errs.end_date = "End date cannot be before start date";
+    }
+    if (formData.end_date && formData.end_date < todayDate) {
+      errs.end_date = "End date cannot be before today";
+    }
 
     if (Object.keys(errs).length > 0) {
       setFormErrors(errs);
@@ -196,12 +236,21 @@ export default function AdminCoupons() {
       max_discount_amount: formData.max_discount_amount
         ? Number(formData.max_discount_amount)
         : null,
-      expiry_date: formData.expiry_date || null,
+      start_date: formData.start_date,
+      end_date: formData.end_date,
       status: formData.status || "active",
     };
 
     try {
-      await createCoupon(payload);
+      const created = await createCoupon(payload);
+      setCouponsList((previous) => [
+        {
+          ...payload,
+          id: created?.couponId,
+          isActive: payload.status === "active" ? 1 : 0,
+        },
+        ...previous,
+      ]);
       await loadCouponsFromDb();
       showToast(`Coupon ${payload.code} saved to database!`);
       setIsAddModalOpen(false);
@@ -217,18 +266,16 @@ export default function AdminCoupons() {
   // Edit Coupon
   const handleOpenEdit = (coupon) => {
     setSelectedCoupon(coupon);
-    let expFormatted = "";
-    const rawExp = coupon.expiry_date || coupon.expiryDate;
-    if (rawExp) {
-      expFormatted = new Date(rawExp).toISOString().split("T")[0];
-    }
+    const savedStartDate = formatDateInput(coupon.start_date);
+    const savedEndDate = formatDateInput(coupon.end_date);
 
     setFormData({
       code: coupon.code || "",
       discount_percent: coupon.discount_percent ?? coupon.discountPercent ?? 10,
       min_order_amount: coupon.min_order_amount ?? coupon.minSpend ?? 0,
       max_discount_amount: coupon.max_discount_amount || "",
-      expiry_date: expFormatted,
+      start_date: savedStartDate && savedStartDate >= todayDate ? savedStartDate : todayDate,
+      end_date: savedEndDate && savedEndDate >= todayDate ? savedEndDate : "",
       status: coupon.status || (coupon.isActive ? "active" : "inactive"),
     });
     setFormErrors({});
@@ -237,8 +284,23 @@ export default function AdminCoupons() {
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
+    const errs = {};
     if (!formData.code.trim()) {
-      setFormErrors({ code: "Coupon code is required" });
+      errs.code = "Coupon code is required";
+    }
+    if (!formData.start_date) errs.start_date = "Start date is required";
+    if (!formData.end_date) errs.end_date = "End date is required";
+    if (formData.start_date && formData.start_date < todayDate) {
+      errs.start_date = "Start date cannot be before today";
+    }
+    if (formData.end_date && formData.start_date && formData.end_date < formData.start_date) {
+      errs.end_date = "End date cannot be before start date";
+    }
+    if (formData.end_date && formData.end_date < todayDate) {
+      errs.end_date = "End date cannot be before today";
+    }
+    if (Object.keys(errs).length > 0) {
+      setFormErrors(errs);
       return;
     }
 
@@ -249,13 +311,25 @@ export default function AdminCoupons() {
       max_discount_amount: formData.max_discount_amount
         ? Number(formData.max_discount_amount)
         : null,
-      expiry_date: formData.expiry_date || null,
+      start_date: formData.start_date,
+      end_date: formData.end_date,
       status: formData.status || "active",
     };
 
     try {
       if (selectedCoupon?.id) {
         await updateCoupon(selectedCoupon.id, payload);
+        setCouponsList((previous) =>
+          previous.map((coupon) =>
+            coupon.id === selectedCoupon.id
+              ? {
+                  ...coupon,
+                  ...payload,
+                  isActive: payload.status === "active" ? 1 : 0,
+                }
+              : coupon
+          )
+        );
         await loadCouponsFromDb();
       }
       showToast(`Coupon ${payload.code} updated in database!`);
@@ -272,8 +346,15 @@ export default function AdminCoupons() {
   const handleToggleStatus = async (coupon) => {
     const isAct = (coupon.status || "active").toLowerCase() === "active" || coupon.isActive === 1;
     const newStatus = isAct ? "inactive" : "active";
+    const couponDetails = { ...coupon };
+    delete couponDetails.start_date;
+    delete couponDetails.end_date;
     try {
-      await updateCoupon(coupon.id, { ...coupon, status: newStatus, isActive: newStatus === "active" ? 1 : 0 });
+      await updateCoupon(coupon.id, {
+        ...couponDetails,
+        status: newStatus,
+        isActive: newStatus === "active" ? 1 : 0,
+      });
       await loadCouponsFromDb();
       showToast(`Coupon ${coupon.code} is now ${newStatus}!`);
     } catch (err) {
@@ -446,7 +527,7 @@ export default function AdminCoupons() {
                   <th>DISCOUNT</th>
                   <th>MIN ORDER</th>
                   <th>MAX CAP</th>
-                  <th>EXPIRY DATE</th>
+                  <th>VALIDITY</th>
                   <th>STATUS</th>
                   <th style={{ textAlign: "right" }}>ACTIONS</th>
                 </tr>
@@ -494,10 +575,11 @@ export default function AdminCoupons() {
                   paginatedCoupons.map((coupon) => {
                     const isAct =
                       (coupon.status || "active").toLowerCase() === "active";
-                    const isExpired =
-                      coupon.expiry_date &&
-                      new Date(coupon.expiry_date) <
-                        new Date(new Date().setHours(0, 0, 0, 0));
+                    const startDate = formatDateInput(coupon.start_date);
+                    const endDate = formatDateInput(coupon.end_date);
+                    const isExpired = endDate && endDate < todayDate;
+                    const isUpcoming = startDate && startDate > todayDate;
+                    const isUnavailable = !isAct || isExpired || isUpcoming;
 
                     return (
                       <tr key={coupon.id}>
@@ -545,18 +627,20 @@ export default function AdminCoupons() {
                             : "Unlimited"}
                         </td>
                         <td style={{ color: "#475569", fontSize: "13px" }}>
-                          {coupon.expiry_date ? (
+                          {startDate || endDate ? (
                             <span
                               style={{
                                 color: isExpired ? "#ef4444" : "#475569",
                                 fontWeight: isExpired ? "700" : "500",
                               }}
                             >
-                              {new Date(coupon.expiry_date).toLocaleDateString()}
+                              {startDate ? formatDateDisplay(startDate) : "—"}
+                              {" → "}
+                              {endDate ? formatDateDisplay(endDate) : "—"}
                               {isExpired ? " (Expired)" : ""}
                             </span>
                           ) : (
-                            <span style={{ color: "#94a3b8" }}>No Expiry</span>
+                            <span style={{ color: "#94a3b8" }}>No Validity</span>
                           )}
                         </td>
                         <td>
@@ -570,10 +654,16 @@ export default function AdminCoupons() {
                               borderRadius: "12px",
                               fontSize: "12px",
                               fontWeight: "700",
-                              background:
-                                !isAct || isExpired ? "#fef2f2" : "#ecfdf5",
-                              color:
-                                !isAct || isExpired ? "#ef4444" : "#10b981",
+                              background: isUpcoming
+                                ? "#fffbeb"
+                                : isUnavailable
+                                  ? "#fef2f2"
+                                  : "#ecfdf5",
+                              color: isUpcoming
+                                ? "#d97706"
+                                : isUnavailable
+                                  ? "#ef4444"
+                                  : "#10b981",
                               display: "inline-flex",
                               alignItems: "center",
                               gap: 4,
@@ -584,15 +674,20 @@ export default function AdminCoupons() {
                                 width: 6,
                                 height: 6,
                                 borderRadius: "50%",
-                                background:
-                                  !isAct || isExpired ? "#ef4444" : "#10b981",
+                                background: isUpcoming
+                                  ? "#d97706"
+                                  : isUnavailable
+                                    ? "#ef4444"
+                                    : "#10b981",
                               }}
                             />
                             {!isAct
                               ? "Inactive"
                               : isExpired
                               ? "Expired"
-                              : "Active"}
+                              : isUpcoming
+                                ? "Scheduled"
+                                : "Active"}
                           </button>
                         </td>
                         <td style={{ textAlign: "right" }}>
@@ -600,31 +695,6 @@ export default function AdminCoupons() {
                             className="adm-actions-cell"
                             style={{ justifyContent: "flex-end" }}
                           >
-                            {isAct && !isExpired ? (
-                              <button
-                                className="adm-btn-action"
-                                style={{
-                                  background: "#fffbeb",
-                                  color: "#d97706",
-                                }}
-                                onClick={() => handleToggleStatus(coupon)}
-                                title="Deactivate Coupon"
-                              >
-                                <IoCloseCircleOutline size={16} />
-                              </button>
-                            ) : (
-                              <button
-                                className="adm-btn-action"
-                                style={{
-                                  background: "#ecfdf5",
-                                  color: "#10b981",
-                                }}
-                                onClick={() => handleToggleStatus(coupon)}
-                                title="Activate Coupon"
-                              >
-                                <IoCheckmarkOutline size={16} />
-                              </button>
-                            )}
                             <button
                               className="adm-btn-action adm-btn-action--edit"
                               title="Edit Coupon"
@@ -744,34 +814,64 @@ export default function AdminCoupons() {
                     </div>
                   </div>
 
+                  <div className="adm-form-group">
+                    <label className="adm-form-label">Max Discount ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="adm-form-input"
+                      placeholder="Optional max cap"
+                      value={formData.max_discount_amount}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          max_discount_amount: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
                   <div className="adm-form-row">
                     <div className="adm-form-group">
-                      <label className="adm-form-label">Max Discount ($)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        className="adm-form-input"
-                        placeholder="Optional max cap"
-                        value={formData.max_discount_amount}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            max_discount_amount: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-
-                    <div className="adm-form-group">
-                      <label className="adm-form-label">Expiry Date</label>
+                      <label className="adm-form-label">Start Date</label>
                       <input
                         type="date"
                         className="adm-form-input"
-                        value={formData.expiry_date}
+                        required
+                        min={todayDate}
+                        max={formData.end_date || undefined}
+                        value={formData.start_date}
                         onChange={(e) =>
-                          setFormData({ ...formData, expiry_date: e.target.value })
+                          setFormData({ ...formData, start_date: e.target.value })
                         }
                       />
+                      {formErrors.start_date && (
+                        <span style={{ color: "#ef4444", fontSize: 12 }}>
+                          {formErrors.start_date}
+                        </span>
+                      )}
+                    </div>
+                    <div className="adm-form-group">
+                      <label className="adm-form-label">End Date</label>
+                      <input
+                        type="date"
+                        className="adm-form-input"
+                        required
+                        min={
+                          formData.start_date > todayDate
+                            ? formData.start_date
+                            : todayDate
+                        }
+                        value={formData.end_date}
+                        onChange={(e) =>
+                          setFormData({ ...formData, end_date: e.target.value })
+                        }
+                      />
+                      {formErrors.end_date && (
+                        <span style={{ color: "#ef4444", fontSize: 12 }}>
+                          {formErrors.end_date}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -876,34 +976,64 @@ export default function AdminCoupons() {
                     </div>
                   </div>
 
+                  <div className="adm-form-group">
+                    <label className="adm-form-label">Max Discount ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="adm-form-input"
+                      placeholder="Optional max cap"
+                      value={formData.max_discount_amount}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          max_discount_amount: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
                   <div className="adm-form-row">
                     <div className="adm-form-group">
-                      <label className="adm-form-label">Max Discount ($)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        className="adm-form-input"
-                        placeholder="Optional max cap"
-                        value={formData.max_discount_amount}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            max_discount_amount: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-
-                    <div className="adm-form-group">
-                      <label className="adm-form-label">Expiry Date</label>
+                      <label className="adm-form-label">Start Date</label>
                       <input
                         type="date"
                         className="adm-form-input"
-                        value={formData.expiry_date}
+                        required
+                        min={todayDate}
+                        max={formData.end_date || undefined}
+                        value={formData.start_date}
                         onChange={(e) =>
-                          setFormData({ ...formData, expiry_date: e.target.value })
+                          setFormData({ ...formData, start_date: e.target.value })
                         }
                       />
+                      {formErrors.start_date && (
+                        <span style={{ color: "#ef4444", fontSize: 12 }}>
+                          {formErrors.start_date}
+                        </span>
+                      )}
+                    </div>
+                    <div className="adm-form-group">
+                      <label className="adm-form-label">End Date</label>
+                      <input
+                        type="date"
+                        className="adm-form-input"
+                        required
+                        min={
+                          formData.start_date > todayDate
+                            ? formData.start_date
+                            : todayDate
+                        }
+                        value={formData.end_date}
+                        onChange={(e) =>
+                          setFormData({ ...formData, end_date: e.target.value })
+                        }
+                      />
+                      {formErrors.end_date && (
+                        <span style={{ color: "#ef4444", fontSize: 12 }}>
+                          {formErrors.end_date}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -959,9 +1089,6 @@ export default function AdminCoupons() {
                 <p style={{ color: "var(--adm-text-primary)", fontSize: 15, marginBottom: 8 }}>
                   Are you sure you want to delete coupon{" "}
                   <strong>"{selectedCoupon?.code}"</strong>?
-                </p>
-                <p style={{ color: "var(--adm-text-secondary)", fontSize: 13, margin: 0 }}>
-                  Customers will no longer be able to use this promo code at checkout. This action cannot be undone.
                 </p>
               </div>
 

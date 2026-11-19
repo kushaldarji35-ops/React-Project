@@ -34,7 +34,7 @@ const TIME_OPTIONS = [
 export default function OrdersPage() {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
-  const [user, setUser] = useState(() => {
+  const [user] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("user") || "null");
     } catch {
@@ -491,7 +491,11 @@ export default function OrdersPage() {
 
         {/* Orders Listing */}
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          {filteredOrders.length > 0 ? (
+          {loading ? (
+            <div className="info-card" role="status" style={{ textAlign: "center", padding: "48px 20px" }}>
+              Loading orders...
+            </div>
+          ) : filteredOrders.length > 0 ? (
             filteredOrders.map((ord) => (
               <div key={ord.id} className="info-card" style={{ padding: "28px" }}>
                 <div
@@ -538,8 +542,6 @@ export default function OrdersPage() {
                 <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginBottom: "24px" }}>
                   {ord.items &&
                     ord.items.map((item, idx) => {
-                      const reviewKey = item.productId || item.name;
-                      const hasReviewed = Boolean(userReviews[reviewKey]);
                       return (
                         <div
                           key={idx}

@@ -5,7 +5,12 @@ const normalizeRow = (r) => {
     if (!r) return null;
     const discount = r.discount_percent ?? r.discountPercent ?? 10;
     const minOrder = r.min_order_amount ?? r.minSpend ?? 0;
-    const expiry = r.expiry_date ?? r.expiryDate ?? null;
+    const startDate = Object.prototype.hasOwnProperty.call(r, "start_date_formatted")
+        ? r.start_date_formatted
+        : r.startDate ?? null;
+    const endDate = Object.prototype.hasOwnProperty.call(r, "end_date_formatted")
+        ? r.end_date_formatted
+        : r.endDate ?? null;
     let st = r.status;
     if (!st) {
         st = r.isActive === 1 || r.isActive === true ? "active" : "inactive";
@@ -16,8 +21,10 @@ const normalizeRow = (r) => {
         discountPercent: Number(discount),
         min_order_amount: Number(minOrder),
         minSpend: Number(minOrder),
-        expiry_date: expiry,
-        expiryDate: expiry,
+        start_date: startDate,
+        end_date: endDate,
+        validity_invalid:
+            startDate === "0000-00-00" || endDate === "0000-00-00",
         status: st,
         isActive: st === "active" ? 1 : 0,
     };
@@ -25,7 +32,9 @@ const normalizeRow = (r) => {
 
 // Get all coupons (with optional search and status filters)
 const getAll = (filters = {}, callback) => {
-    let sql = "SELECT * FROM coupons WHERE 1=1";
+    let sql = `SELECT *, DATE_FORMAT(startDate, '%Y-%m-%d') AS start_date_formatted,
+        DATE_FORMAT(endDate, '%Y-%m-%d') AS end_date_formatted
+        FROM coupons WHERE 1=1`;
     const params = [];
 
     if (filters.status && filters.status !== "all") {
@@ -51,7 +60,9 @@ const getAll = (filters = {}, callback) => {
 
 // Get coupon by ID
 const getById = (id, callback) => {
-    const sql = "SELECT * FROM coupons WHERE id = ?";
+    const sql = `SELECT *, DATE_FORMAT(startDate, '%Y-%m-%d') AS start_date_formatted,
+        DATE_FORMAT(endDate, '%Y-%m-%d') AS end_date_formatted
+        FROM coupons WHERE id = ?`;
     db.query(sql, [id], (err, rows) => {
         if (err) return callback(err);
         callback(null, (rows || []).map(normalizeRow));
@@ -60,14 +71,16 @@ const getById = (id, callback) => {
 
 // Get coupon by Code (case insensitive)
 const getByCode = (code, callback) => {
-    const sql = "SELECT * FROM coupons WHERE UPPER(code) = UPPER(?)";
+    const sql = `SELECT *, DATE_FORMAT(startDate, '%Y-%m-%d') AS start_date_formatted,
+        DATE_FORMAT(endDate, '%Y-%m-%d') AS end_date_formatted
+        FROM coupons WHERE UPPER(code) = UPPER(?)`;
     db.query(sql, [code], (err, rows) => {
         if (err) return callback(err);
         callback(null, (rows || []).map(normalizeRow));
     });
 };
 
-// Create a new coupon (supports both camelCase and snake_case schema)
+// Create a new coupon
 const create = (data, callback) => {
     const {
         code,
@@ -76,8 +89,8 @@ const create = (data, callback) => {
         min_order_amount,
         minSpend,
         max_discount_amount,
-        expiry_date,
-        expiryDate,
+        start_date,
+        end_date,
         status,
         isActive,
     } = data;
@@ -85,7 +98,6 @@ const create = (data, callback) => {
     const discountVal = Number(discount_percent ?? discountPercent ?? 10);
     const minOrderVal = Number(min_order_amount ?? minSpend ?? 0);
     const maxDiscountVal = max_discount_amount ? Number(max_discount_amount) : null;
-    const expiryVal = expiry_date || expiryDate || null;
     const statusVal = status || (isActive === 1 || isActive === true ? "active" : "active");
     const isActVal = statusVal.toLowerCase() === "active" ? 1 : 0;
 
@@ -95,10 +107,10 @@ const create = (data, callback) => {
             discountPercent,
             discount_percent,
             minSpend,
+            startDate,
+            endDate,
             min_order_amount,
             max_discount_amount,
-            expiryDate,
-            expiry_date,
             isActive,
             status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -111,10 +123,10 @@ const create = (data, callback) => {
             discountVal,
             discountVal,
             minOrderVal,
+            start_date || null,
+            end_date || null,
             minOrderVal,
             maxDiscountVal,
-            expiryVal,
-            expiryVal,
             isActVal,
             statusVal,
         ],
@@ -130,9 +142,9 @@ const update = (id, data, callback) => {
         discountPercent,
         min_order_amount,
         minSpend,
+        start_date,
+        end_date,
         max_discount_amount,
-        expiry_date,
-        expiryDate,
         status,
         isActive,
     } = data;
@@ -140,7 +152,6 @@ const update = (id, data, callback) => {
     const discountVal = discount_percent != null || discountPercent != null ? Number(discount_percent ?? discountPercent) : null;
     const minOrderVal = min_order_amount != null || minSpend != null ? Number(min_order_amount ?? minSpend) : null;
     const maxDiscountVal = max_discount_amount != null && max_discount_amount !== "" ? Number(max_discount_amount) : null;
-    const expiryVal = expiry_date !== undefined ? expiry_date : expiryDate !== undefined ? expiryDate : null;
     const statusVal = status ?? (isActive != null ? (isActive === 1 ? "active" : "inactive") : null);
     const isActVal = statusVal ? (statusVal.toLowerCase() === "active" ? 1 : 0) : null;
 
@@ -152,8 +163,8 @@ const update = (id, data, callback) => {
             minSpend = COALESCE(?, minSpend),
             min_order_amount = COALESCE(?, min_order_amount),
             max_discount_amount = ?,
-            expiryDate = ?,
-            expiry_date = ?,
+            startDate = COALESCE(?, startDate),
+            endDate = COALESCE(?, endDate),
             isActive = COALESCE(?, isActive),
             status = COALESCE(?, status)
         WHERE id = ?
@@ -168,8 +179,8 @@ const update = (id, data, callback) => {
             minOrderVal,
             minOrderVal,
             maxDiscountVal,
-            expiryVal,
-            expiryVal,
+            start_date ?? null,
+            end_date ?? null,
             isActVal,
             statusVal,
             id,
@@ -189,8 +200,18 @@ const count = (callback) => {
     const sql = `
         SELECT 
             COUNT(*) as totalCoupons,
-            SUM(CASE WHEN status = 'active' OR isActive = 1 THEN 1 ELSE 0 END) as activeCoupons,
-            SUM(CASE WHEN (status != 'active' AND isActive != 1) OR (expiry_date IS NOT NULL AND expiry_date < CURDATE()) OR (expiryDate IS NOT NULL AND expiryDate < CURDATE()) THEN 1 ELSE 0 END) as inactiveOrExpired
+            SUM(CASE
+                WHEN (status = 'active' OR isActive = 1)
+                    AND (startDate IS NULL OR startDate <= CURDATE())
+                    AND (endDate IS NULL OR endDate >= CURDATE())
+                THEN 1 ELSE 0
+            END) as activeCoupons,
+            SUM(CASE
+                WHEN (status != 'active' AND isActive != 1)
+                    OR (endDate IS NOT NULL AND endDate < CURDATE())
+                    OR (startDate IS NOT NULL AND startDate > CURDATE())
+                THEN 1 ELSE 0
+            END) as inactiveOrExpired
         FROM coupons
     `;
     db.query(sql, callback);

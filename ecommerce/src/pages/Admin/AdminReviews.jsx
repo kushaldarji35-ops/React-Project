@@ -590,7 +590,7 @@ export default function AdminReviews() {
 
                       {/* Actions */}
                       <td>
-                        <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                        <div className="adm-actions-cell" style={{ justifyContent: "flex-end" }}>
                           {rev.status !== "Approved" && (
                             <button
                               className="adm-action-btn"

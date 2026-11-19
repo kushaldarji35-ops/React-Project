@@ -105,6 +105,14 @@ function FilterSidebar({
 
   const toggle = (key, value) => {
     setLocalFilters((prev) => {
+      if (key === "subcategory") {
+        return {
+          ...prev,
+          subcategory:
+            prev.subcategory?.includes(value) ? [] : [value],
+        };
+      }
+
       const arr = prev[key] || [];
       return {
         ...prev,
@@ -117,6 +125,7 @@ function FilterSidebar({
 
   const handleApply = () => {
     setFilters(localFilters);
+    window.scrollTo({ top: 0, behavior: "smooth" });
     onApply?.();
   };
 
@@ -206,6 +215,7 @@ function FilterSidebar({
             key={style}
             onClick={() => toggle("dressStyle", style.toLowerCase())}
             className={`filter-style-item${localFilters.dressStyle?.includes(style.toLowerCase()) ? " filter-style-item--active" : ""}`}
+            aria-pressed={localFilters.dressStyle?.includes(style.toLowerCase())}
           >
             {style}
             <IoChevronForward size={14} />
@@ -234,7 +244,7 @@ export default function CategoryPage() {
     maxPrice: null,
   });
 
-  const [productsVersion, setProductsVersion] = useState(0);
+  const [, setProductsVersion] = useState(0);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const priceCeiling = products.reduce(
@@ -350,7 +360,6 @@ export default function CategoryPage() {
         <Breadcrumb
           items={[
             { label: "Home", href: "/" },
-            { label: "Shop", href: "/category/all" },
             ...(filters.subcategory?.length > 0
               ? [
                   { label: categoryLabel, href: `/category/${slug}` },

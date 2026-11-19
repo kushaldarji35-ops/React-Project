@@ -1,5 +1,36 @@
 import couponModel from "../models/couponModel.js";
 
+const isValidDate = (value) => {
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+};
+
+const getTodayDate = () => {
+    const today = new Date();
+    return [
+        today.getFullYear(),
+        String(today.getMonth() + 1).padStart(2, "0"),
+        String(today.getDate()).padStart(2, "0"),
+    ].join("-");
+};
+
+const validateValidity = (startDate, endDate) => {
+    if (!isValidDate(startDate) || !isValidDate(endDate)) {
+        return "Valid start and end dates are required";
+    }
+    if (startDate < getTodayDate()) {
+        return "Start date cannot be before today";
+    }
+    if (endDate < getTodayDate()) {
+        return "End date cannot be before today";
+    }
+    if (endDate < startDate) {
+        return "End date cannot be before start date";
+    }
+    return null;
+};
+
 // GET /api/coupons - list coupons
 const getCoupons = (req, res) => {
     const { status, search } = req.query;
@@ -29,13 +60,15 @@ const getCouponById = (req, res) => {
 
 // POST /api/coupons - create coupon
 const createCoupon = (req, res) => {
-    const { code, discount_percent, min_order_amount, max_discount_amount, expiry_date, status } = req.body;
+    const { code, discount_percent, min_order_amount, max_discount_amount, start_date, end_date, status } = req.body;
     if (!code || !code.trim()) {
         return res.status(400).json({ message: "Coupon code is required" });
     }
     if (discount_percent == null || isNaN(discount_percent) || Number(discount_percent) <= 0 || Number(discount_percent) > 100) {
         return res.status(400).json({ message: "Discount percent must be between 1 and 100" });
     }
+    const validityError = validateValidity(start_date, end_date);
+    if (validityError) return res.status(400).json({ message: validityError });
 
     couponModel.create(
         {
@@ -43,7 +76,8 @@ const createCoupon = (req, res) => {
             discount_percent,
             min_order_amount,
             max_discount_amount,
-            expiry_date,
+            start_date,
+            end_date,
             status: status || "active",
         },
         (err, result) => {
@@ -64,11 +98,15 @@ const createCoupon = (req, res) => {
 // PUT /api/coupons/:id - update coupon
 const updateCoupon = (req, res) => {
     const { id } = req.params;
-    const { code, discount_percent, min_order_amount, max_discount_amount, expiry_date, status } = req.body;
+    const { code, discount_percent, min_order_amount, max_discount_amount, start_date, end_date, status } = req.body;
+    if (start_date || end_date) {
+        const validityError = validateValidity(start_date, end_date);
+        if (validityError) return res.status(400).json({ message: validityError });
+    }
 
     couponModel.update(
         id,
-        { code, discount_percent, min_order_amount, max_discount_amount, expiry_date, status },
+        { code, discount_percent, min_order_amount, max_discount_amount, start_date, end_date, status },
         (err, result) => {
             if (err) {
                 if (err.code === "ER_DUP_ENTRY") {
@@ -107,19 +145,24 @@ const validateCoupon = (req, res) => {
 
         const coupon = results[0];
 
+        if (coupon.validity_invalid) {
+            return res.status(400).json({
+                message: "This coupon has invalid validity dates. Please update it.",
+            });
+        }
+
         // 1. Check status
         if (coupon.status && coupon.status.toLowerCase() !== "active") {
             return res.status(400).json({ message: "This coupon is currently inactive." });
         }
 
-        // 2. Check expiry
-        if (coupon.expiry_date) {
-            const expiry = new Date(coupon.expiry_date);
-            // End of the expiry day
-            expiry.setHours(23, 59, 59, 999);
-            if (new Date() > expiry) {
-                return res.status(400).json({ message: "This coupon has expired." });
-            }
+        // 2. Check validity dates
+        const todayDate = getTodayDate();
+        if (coupon.start_date && coupon.start_date > todayDate) {
+            return res.status(400).json({ message: "This coupon is not active yet." });
+        }
+        if (coupon.end_date && coupon.end_date < todayDate) {
+            return res.status(400).json({ message: "This coupon has expired." });
         }
 
         const total = Number(orderTotal) || 0;

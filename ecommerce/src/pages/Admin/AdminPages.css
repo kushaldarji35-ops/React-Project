@@ -803,6 +803,40 @@
   background: #f0f9ff;
 }
 
+/* Shared table action buttons */
+.adm-action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--adm-text-secondary);
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.adm-action-btn:hover {
+  background: #f1f5f9;
+  color: var(--adm-text-primary);
+  border-color: #cbd5e1;
+}
+
+.adm-action-btn--edit:hover {
+  border-color: #6366f1;
+  color: #6366f1;
+  background: #eef2ff;
+}
+
+.adm-action-btn--delete:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: #fef2f2;
+}
+
 /* Empty State */
 .adm-empty {
   padding: 60px 20px;

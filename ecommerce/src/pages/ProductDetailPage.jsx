@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
 import {
   IoCheckmark,
   IoCheckmarkCircle,
   IoChevronDown,
   IoChevronUp,
+  IoClose,
   IoEllipsisHorizontal,
+  IoStar,
 } from "react-icons/io5";
 import { LuSlidersHorizontal } from "react-icons/lu";
 import Breadcrumb from "../components/ui/Breadcrumb";
@@ -39,67 +42,46 @@ const FAQS = [
   },
 ];
 
-const mock_reviews = [
-  {
-    id: 1,
-    name: "Samantha D.",
-    verified: true,
-    rating: 5,
-    comment:
-      "I absolutely love this t-shirt! The design is unique and the fabric feels so comfortable. As a fellow designer, I appreciate the attention to detail. It's become my favorite go-to shirt.",
-    date: "August 14, 2023",
-  },
-  {
-    id: 2,
-    name: "Alex M.",
-    verified: true,
-    rating: 4,
-    comment:
-      "The t-shirt exceeded my expectations! The colors are vibrant and the print quality is top-notch. Being a UI/UX designer myself, I'm quite picky about aesthetics, and this t-shirt definitely gets a thumbs up from me.",
-    date: "August 15, 2023",
-  },
-  {
-    id: 3,
-    name: "Ethan R.",
-    verified: true,
-    rating: 3.5,
-    comment:
-      "This t-shirt is a must-have for anyone who appreciates good design. The minimalistic yet stylish pattern caught my eye, and the fit is perfect. I can see the designer's touch in every aspect of this shirt.",
-    date: "August 16, 2023",
-  },
-  {
-    id: 4,
-    name: "Olivia P.",
-    verified: true,
-    rating: 4,
-    comment:
-      "As a UI/UX enthusiast, I value simplicity and functionality. This t-shirt not only represents those principles but also feels great to wear. It's evident that the designer poured their creativity into making this t-shirt stand out.",
-    date: "August 17, 2023",
-  },
-  {
-    id: 5,
-    name: "Liam K.",
-    verified: true,
-    rating: 4,
-    comment:
-      "This t-shirt is a fusion of comfort and creativity. The fabric is soft, and the design speaks volumes about the designer's skill. It's like wearing a piece of art that reflects my passion for both design and fashion.",
-    date: "August 18, 2023",
-  },
-  {
-    id: 6,
-    name: "Ava H.",
-    verified: true,
-    rating: 4.5,
-    comment:
-      "I'm not just wearing a t-shirt; I'm wearing a piece of design philosophy. The intricate details and thoughtful layout of the design make this shirt a conversation starter.",
-    date: "August 19, 2023",
-  },
+const API_BASE = "http://localhost:5000/api";
+const REVIEWS_PAGE_SIZE = 6;
+const REVIEW_SORT_OPTIONS = [
+  { value: "latest", label: "Latest" },
+  { value: "oldest", label: "Oldest" },
+  { value: "rating-high", label: "Highest Rating" },
+  { value: "rating-low", label: "Lowest Rating" },
 ];
+
+const formatReviewDate = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
 
 export default function ProductDetailPage() {
   const { id } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { addToCart } = useCart();
-  const [productsVersion, setProductsVersion] = useState(0);
+  const [, setProductsVersion] = useState(0);
+  const [productReviews, setProductReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [reviewsError, setReviewsError] = useState("");
+  const [visibleReviewCount, setVisibleReviewCount] = useState(REVIEWS_PAGE_SIZE);
+  const [ratingFilter, setRatingFilter] = useState("all");
+  const [reviewSort, setReviewSort] = useState("latest");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewFormError, setReviewFormError] = useState("");
+  const [reviewNotice, setReviewNotice] = useState("");
 
   useEffect(() => {
     fetchDbProducts().catch(() => {});
@@ -112,8 +94,58 @@ export default function ProductDetailPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    setProductReviews([]);
+    setReviewsError("");
+    setReviewsLoading(true);
+    setVisibleReviewCount(REVIEWS_PAGE_SIZE);
+    setRatingFilter("all");
+    setReviewSort("latest");
+    setIsFilterOpen(false);
+    setIsSortOpen(false);
+    setReviewNotice("");
+
+    axios
+      .get(`${API_BASE}/reviews/product/${id}`, { signal: controller.signal })
+      .then((response) => {
+        setProductReviews(Array.isArray(response.data) ? response.data : []);
+      })
+      .catch((error) => {
+        if (!axios.isCancel(error)) {
+          setReviewsError(
+            error.response?.data?.message || "Unable to load reviews for this product.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setReviewsLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [id]);
+
   const product = getProductById(id);
   const related = getRelatedProducts(id, 4);
+  const selectedSort = REVIEW_SORT_OPTIONS.find(
+    (option) => option.value === reviewSort,
+  );
+  const displayedReviews = productReviews
+    .filter(
+      (review) =>
+        ratingFilter === "all" || Number(review.rating) === Number(ratingFilter),
+    )
+    .sort((a, b) => {
+      if (reviewSort === "rating-high") {
+        return Number(b.rating) - Number(a.rating);
+      }
+      if (reviewSort === "rating-low") {
+        return Number(a.rating) - Number(b.rating);
+      }
+      const timeA = new Date(a.created_at).getTime() || Number(a.id) || 0;
+      const timeB = new Date(b.created_at).getTime() || Number(b.id) || 0;
+      return reviewSort === "oldest" ? timeA - timeB : timeB - timeA;
+    });
 
   const [activeImg, setActiveImg] = useState(0);
   const [selectedColor, setSelectedColor] = useState(null);
@@ -168,11 +200,62 @@ export default function ProductDetailPage() {
     }, 1000);
   };
 
+  const handleOpenReview = () => {
+    if (!localStorage.getItem("token")) {
+      navigate("/login", { state: { returnUrl: location.pathname } });
+      return;
+    }
+    setReviewFormError("");
+    setIsReviewModalOpen(true);
+  };
+
+  const handleSubmitReview = async (event) => {
+    event.preventDefault();
+    if (!reviewRating) {
+      setReviewFormError("Please select a star rating.");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/login", { state: { returnUrl: location.pathname } });
+      return;
+    }
+
+    setReviewSubmitting(true);
+    setReviewFormError("");
+    try {
+      await axios.post(
+        `${API_BASE}/reviews`,
+        {
+          product_id: id,
+          rating: reviewRating,
+          comment: reviewComment.trim(),
+        },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      setIsReviewModalOpen(false);
+      setReviewRating(0);
+      setReviewComment("");
+      setReviewNotice("Review submitted. It will appear after admin approval.");
+    } catch (error) {
+      setReviewFormError(
+        error.response?.data?.message || "Unable to submit your review.",
+      );
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
   const discount = product.originalPrice
     ? Math.round(
         ((product.originalPrice - product.price) / product.originalPrice) * 100,
       )
     : null;
+  const categorySlug = product.category_slug || product.category || "all";
+  const categoryName = product.category_name || product.category || "Category";
+  const categoryLabel =
+    categoryName.charAt(0).toUpperCase() + categoryName.slice(1);
 
   return (
     <>
@@ -180,9 +263,12 @@ export default function ProductDetailPage() {
         <Breadcrumb
           items={[
             { label: "Home", href: "/" },
-            { label: "Shop", href: "/category/casual" },
-            { label: "Men", href: "/category/casual" },
-            { label: "T-shirts" },
+            { label: "Shop", href: "/category/all" },
+            {
+              label: categoryLabel,
+              href: `/category/${categorySlug}`,
+            },
+            { label: product.name },
           ]}
         />
         <div className="product-detail__hero">
@@ -341,56 +427,145 @@ export default function ProductDetailPage() {
               <div>
                 <div className="reviews-header">
                   <h3 className="reviews-title">
-                    All Reviews <span className="reviews-count">(451)</span>
+                    All Reviews{" "}
+                    <span className="reviews-count">({productReviews.length})</span>
                   </h3>
                   <div className="reviews-header__actions">
-                    <button
-                      className="reviews-filter-btn"
-                      aria-label="Filter reviews"
-                    >
-                      <LuSlidersHorizontal size={18} />
-                    </button>
-                    <div className="reviews-sort-btn">
-                      <span>Latest</span>
-                      <IoChevronDown size={16} />
+                    <div className="reviews-control-wrap">
+                      <button
+                        className={`reviews-filter-btn${ratingFilter !== "all" ? " reviews-filter-btn--active" : ""}`}
+                        aria-label="Filter reviews by rating"
+                        aria-expanded={isFilterOpen}
+                        onClick={() => {
+                          setIsFilterOpen((open) => !open);
+                          setIsSortOpen(false);
+                        }}
+                      >
+                        <LuSlidersHorizontal size={18} />
+                      </button>
+                      {isFilterOpen && (
+                        <div className="reviews-dropdown" role="menu">
+                          {["all", 5, 4, 3, 2, 1].map((rating) => (
+                            <button
+                              key={rating}
+                              className={`reviews-dropdown__item${ratingFilter === String(rating) ? " reviews-dropdown__item--selected" : ""}`}
+                              role="menuitemradio"
+                              aria-checked={ratingFilter === String(rating)}
+                              onClick={() => {
+                                setRatingFilter(String(rating));
+                                setVisibleReviewCount(REVIEWS_PAGE_SIZE);
+                                setIsFilterOpen(false);
+                              }}
+                            >
+                              {rating === "all" ? "All ratings" : `${rating} stars`}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <button className="reviews-write-btn">
+                    <div className="reviews-control-wrap">
+                      <button
+                        className="reviews-sort-btn"
+                        aria-expanded={isSortOpen}
+                        onClick={() => {
+                          setIsSortOpen((open) => !open);
+                          setIsFilterOpen(false);
+                        }}
+                      >
+                        <span>{selectedSort?.label || "Latest"}</span>
+                        <IoChevronDown size={16} />
+                      </button>
+                      {isSortOpen && (
+                        <div className="reviews-dropdown" role="menu">
+                          {REVIEW_SORT_OPTIONS.map((option) => (
+                            <button
+                              key={option.value}
+                              className={`reviews-dropdown__item${reviewSort === option.value ? " reviews-dropdown__item--selected" : ""}`}
+                              role="menuitemradio"
+                              aria-checked={reviewSort === option.value}
+                              onClick={() => {
+                                setReviewSort(option.value);
+                                setIsSortOpen(false);
+                              }}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      className="reviews-write-btn"
+                      onClick={handleOpenReview}
+                    >
                       Write a Review
                     </button>
                   </div>
                 </div>
+                {reviewNotice && (
+                  <p className="review-submit-notice" role="status">
+                    {reviewNotice}
+                  </p>
+                )}
                 <div className="reviews-grid">
-                  {mock_reviews.map((review) => (
-                    <div key={review.id} className="review-card">
-                      <div className="review-card__header">
-                        <StarRating rating={review.rating} size="sm" />
-                        <button
-                          className="review-card__more-btn"
-                          aria-label="Review options"
-                        >
-                          <IoEllipsisHorizontal size={20} />
-                        </button>
-                      </div>
-                      <div className="review-card__author">
-                        <span className="review-card__name">{review.name}</span>
-                        {review.verified && (
-                          <span className="review-card__verified">
-                            <IoCheckmarkCircle size={18} />
+                  {reviewsLoading ? (
+                    <p className="reviews-empty">Loading reviews...</p>
+                  ) : reviewsError ? (
+                    <p className="reviews-empty reviews-empty--error">
+                      {reviewsError}
+                    </p>
+                  ) : productReviews.length === 0 ? (
+                    <p className="reviews-empty">
+                      No approved reviews for this product yet.
+                    </p>
+                  ) : displayedReviews.length === 0 ? (
+                    <p className="reviews-empty">
+                      No reviews match this rating filter.
+                    </p>
+                  ) : (
+                    displayedReviews.slice(0, visibleReviewCount).map((review) => (
+                      <div key={review.id} className="review-card">
+                        <div className="review-card__header">
+                          <StarRating rating={review.rating} size="sm" />
+                          <button
+                            className="review-card__more-btn"
+                            aria-label="Review options"
+                          >
+                            <IoEllipsisHorizontal size={20} />
+                          </button>
+                        </div>
+                        <div className="review-card__author">
+                          <span className="review-card__name">
+                            {review.user_name || "Customer"}
                           </span>
-                        )}
+                          {review.order_id && (
+                            <span className="review-card__verified">
+                              <IoCheckmarkCircle size={18} />
+                            </span>
+                          )}
+                        </div>
+                        <p className="review-card__text">"{review.comment}"</p>
+                        <p className="review-card__date">
+                          Posted on {formatReviewDate(review.created_at)}
+                        </p>
                       </div>
-                      <p className="review-card__text">"{review.comment}"</p>
-                      <p className="review-card__date">
-                        Posted on {review.date}
-                      </p>
+                    ))
+                  )}
+                </div>
+                {!reviewsLoading &&
+                  !reviewsError &&
+                  visibleReviewCount < displayedReviews.length && (
+                    <div className="reviews-load-more">
+                      <button
+                        className="reviews-load-more-btn"
+                        onClick={() =>
+                          setVisibleReviewCount((count) => count + REVIEWS_PAGE_SIZE)
+                        }
+                      >
+                        Load More Reviews
+                      </button>
                     </div>
-                  ))}
-                </div>
-                <div className="reviews-load-more">
-                  <button className="reviews-load-more-btn">
-                    Load More Reviews
-                  </button>
-                </div>
+                  )}
               </div>
             )}
 
@@ -432,6 +607,76 @@ export default function ProductDetailPage() {
           </div>
         </section>
       </div>
+
+      {isReviewModalOpen && (
+        <div
+          className="review-modal-overlay"
+          onClick={() => setIsReviewModalOpen(false)}
+        >
+          <div
+            className="review-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="review-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="review-modal__header">
+              <h2 id="review-modal-title">Write a Review</h2>
+              <button
+                type="button"
+                className="review-modal__close"
+                aria-label="Close review form"
+                onClick={() => setIsReviewModalOpen(false)}
+              >
+                <IoClose size={22} />
+              </button>
+            </div>
+            <p className="review-modal__product">{product.name}</p>
+            <form onSubmit={handleSubmitReview}>
+              <fieldset className="review-form__rating">
+                <legend>Your rating</legend>
+                <div className="review-form__stars">
+                  {[1, 2, 3, 4, 5].map((rating) => (
+                    <button
+                      key={rating}
+                      type="button"
+                      className={`review-form__star${rating <= reviewRating ? " review-form__star--selected" : ""}`}
+                      aria-label={`${rating} star${rating === 1 ? "" : "s"}`}
+                      aria-pressed={reviewRating === rating}
+                      onClick={() => setReviewRating(rating)}
+                    >
+                      <IoStar size={26} />
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+              <label className="review-form__label" htmlFor="review-comment">
+                Your review
+              </label>
+              <textarea
+                id="review-comment"
+                className="review-form__comment"
+                value={reviewComment}
+                onChange={(event) => setReviewComment(event.target.value)}
+                maxLength={2000}
+                placeholder="Share your experience with this product"
+              />
+              {reviewFormError && (
+                <p className="review-form__error" role="alert">
+                  {reviewFormError}
+                </p>
+              )}
+              <button
+                type="submit"
+                className="reviews-write-btn review-form__submit"
+                disabled={reviewSubmitting}
+              >
+                {reviewSubmitting ? "Submitting..." : "Submit Review"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       <NewsletterBanner />
     </>
